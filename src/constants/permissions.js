@@ -1,0 +1,182 @@
+export const PERMISSIONS = Object.freeze({
+  // ─── Auth ───────────────────────────────────────────────────
+  AUTH_LOGIN: 'auth:login',
+  AUTH_LOGOUT: 'auth:logout',
+  AUTH_REFRESH: 'auth:refresh',
+  AUTH_CHANGE_PASSWORD: 'auth:change_password',
+  AUTH_FORGOT_PASSWORD: 'auth:forgot_password',
+
+  // ─── Users ──────────────────────────────────────────────────
+  USER_CREATE: 'user:create',
+  USER_READ: 'user:read',
+  USER_UPDATE: 'user:update',
+  USER_DELETE: 'user:delete',
+  USER_LIST: 'user:list',
+  USER_BLOCK: 'user:block',
+  USER_UNBLOCK: 'user:unblock',
+
+  // ─── Retailer ───────────────────────────────────────────────
+  RETAILER_CREATE: 'retailer:create',
+  RETAILER_READ: 'retailer:read',
+  RETAILER_UPDATE: 'retailer:update',
+  RETAILER_DELETE: 'retailer:delete',
+  RETAILER_LIST: 'retailer:list',
+
+  // ─── Wallet ─────────────────────────────────────────────────
+  WALLET_READ: 'wallet:read',
+  WALLET_CREDIT: 'wallet:credit',
+  WALLET_DEBIT: 'wallet:debit',
+  WALLET_FREEZE: 'wallet:freeze',
+  WALLET_UNFREEZE: 'wallet:unfreeze',
+  WALLET_STATEMENT: 'wallet:statement',
+  WALLET_LEDGER: 'wallet:ledger',
+
+  // ─── Recharge ───────────────────────────────────────────────
+  RECHARGE_INITIATE: 'recharge:initiate',
+  RECHARGE_READ: 'recharge:read',
+  RECHARGE_LIST: 'recharge:list',
+  RECHARGE_STATUS: 'recharge:status',
+  RECHARGE_RETRY: 'recharge:retry',
+  RECHARGE_REFUND: 'recharge:refund',
+  RECHARGE_CANCEL: 'recharge:cancel',
+
+  // ─── Operator / Circle / Plans ──────────────────────────────
+  OPERATOR_CREATE: 'operator:create',
+  OPERATOR_READ: 'operator:read',
+  OPERATOR_UPDATE: 'operator:update',
+  OPERATOR_DELETE: 'operator:delete',
+  OPERATOR_LIST: 'operator:list',
+
+  CIRCLE_CREATE: 'circle:create',
+  CIRCLE_READ: 'circle:read',
+  CIRCLE_UPDATE: 'circle:update',
+  CIRCLE_DELETE: 'circle:delete',
+  CIRCLE_LIST: 'circle:list',
+
+  PLAN_CREATE: 'plan:create',
+  PLAN_READ: 'plan:read',
+  PLAN_UPDATE: 'plan:update',
+  PLAN_DELETE: 'plan:delete',
+  PLAN_LIST: 'plan:list',
+
+  // ─── Reports ────────────────────────────────────────────────
+  REPORT_SALES: 'report:sales',
+  REPORT_WALLET: 'report:wallet',
+  REPORT_RECHARGE: 'report:recharge',
+  REPORT_COMMISSION: 'report:commission',
+
+  // ─── Notifications ──────────────────────────────────────────
+  NOTIFICATION_READ: 'notification:read',
+  NOTIFICATION_CREATE: 'notification:create',
+  NOTIFICATION_DELETE: 'notification:delete',
+  NOTIFICATION_BROADCAST: 'notification:broadcast',
+
+  // ─── API Keys ───────────────────────────────────────────────
+  API_KEY_CREATE: 'api_key:create',
+  API_KEY_READ: 'api_key:read',
+  API_KEY_REVOKE: 'api_key:revoke',
+  API_KEY_LIST: 'api_key:list',
+
+  // ─── Settings ───────────────────────────────────────────────
+  SETTINGS_READ: 'settings:read',
+  SETTINGS_UPDATE: 'settings:update',
+
+  // ─── Logs ───────────────────────────────────────────────────
+  LOG_ACTIVITY: 'log:activity',
+  LOG_AUDIT: 'log:audit',
+  LOG_API: 'log:api',
+  LOG_WEBHOOK: 'log:webhook',
+
+  // ─── Providers ──────────────────────────────────────────────
+  PROVIDER_READ: 'provider:read',
+  PROVIDER_UPDATE: 'provider:update',
+  PROVIDER_BALANCE: 'provider:balance',
+});
+
+// Default permissions per role
+export const ROLE_PERMISSIONS = Object.freeze({
+  super_admin: Object.values(PERMISSIONS),
+
+  admin: [
+    PERMISSIONS.AUTH_LOGIN,
+    PERMISSIONS.AUTH_LOGOUT,
+    PERMISSIONS.AUTH_REFRESH,
+    PERMISSIONS.AUTH_CHANGE_PASSWORD,
+    PERMISSIONS.AUTH_FORGOT_PASSWORD,
+    PERMISSIONS.RETAILER_CREATE,
+    PERMISSIONS.RETAILER_READ,
+    PERMISSIONS.RETAILER_UPDATE,
+    PERMISSIONS.RETAILER_DELETE,
+    PERMISSIONS.RETAILER_LIST,
+    PERMISSIONS.USER_READ,
+    PERMISSIONS.USER_LIST,
+    PERMISSIONS.USER_BLOCK,
+    PERMISSIONS.USER_UNBLOCK,
+    PERMISSIONS.WALLET_READ,
+    PERMISSIONS.WALLET_CREDIT,
+    PERMISSIONS.WALLET_DEBIT,
+    PERMISSIONS.WALLET_FREEZE,
+    PERMISSIONS.WALLET_UNFREEZE,
+    PERMISSIONS.WALLET_STATEMENT,
+    PERMISSIONS.WALLET_LEDGER,
+    PERMISSIONS.RECHARGE_READ,
+    PERMISSIONS.RECHARGE_LIST,
+    PERMISSIONS.RECHARGE_STATUS,
+    PERMISSIONS.RECHARGE_RETRY,
+    PERMISSIONS.RECHARGE_REFUND,
+    PERMISSIONS.OPERATOR_READ,
+    PERMISSIONS.OPERATOR_LIST,
+    PERMISSIONS.OPERATOR_CREATE,
+    PERMISSIONS.OPERATOR_UPDATE,
+    PERMISSIONS.CIRCLE_READ,
+    PERMISSIONS.CIRCLE_LIST,
+    PERMISSIONS.CIRCLE_CREATE,
+    PERMISSIONS.CIRCLE_UPDATE,
+    PERMISSIONS.PLAN_READ,
+    PERMISSIONS.PLAN_LIST,
+    PERMISSIONS.PLAN_CREATE,
+    PERMISSIONS.PLAN_UPDATE,
+    PERMISSIONS.REPORT_SALES,
+    PERMISSIONS.REPORT_WALLET,
+    PERMISSIONS.REPORT_RECHARGE,
+    PERMISSIONS.REPORT_COMMISSION,
+    PERMISSIONS.NOTIFICATION_READ,
+    PERMISSIONS.NOTIFICATION_CREATE,
+    PERMISSIONS.NOTIFICATION_BROADCAST,
+    PERMISSIONS.API_KEY_CREATE,
+    PERMISSIONS.API_KEY_READ,
+    PERMISSIONS.API_KEY_REVOKE,
+    PERMISSIONS.API_KEY_LIST,
+    PERMISSIONS.SETTINGS_READ,
+    PERMISSIONS.LOG_ACTIVITY,
+    PERMISSIONS.LOG_AUDIT,
+    PERMISSIONS.LOG_API,
+    PERMISSIONS.LOG_WEBHOOK,
+    PERMISSIONS.PROVIDER_READ,
+    PERMISSIONS.PROVIDER_BALANCE,
+  ],
+
+  retailer: [
+    PERMISSIONS.AUTH_LOGIN,
+    PERMISSIONS.AUTH_LOGOUT,
+    PERMISSIONS.AUTH_REFRESH,
+    PERMISSIONS.AUTH_CHANGE_PASSWORD,
+    PERMISSIONS.AUTH_FORGOT_PASSWORD,
+    PERMISSIONS.WALLET_READ,
+    PERMISSIONS.WALLET_STATEMENT,
+    PERMISSIONS.WALLET_LEDGER,
+    PERMISSIONS.RECHARGE_INITIATE,
+    PERMISSIONS.RECHARGE_READ,
+    PERMISSIONS.RECHARGE_LIST,
+    PERMISSIONS.RECHARGE_STATUS,
+    PERMISSIONS.OPERATOR_READ,
+    PERMISSIONS.OPERATOR_LIST,
+    PERMISSIONS.CIRCLE_READ,
+    PERMISSIONS.CIRCLE_LIST,
+    PERMISSIONS.PLAN_READ,
+    PERMISSIONS.PLAN_LIST,
+    PERMISSIONS.NOTIFICATION_READ,
+    PERMISSIONS.REPORT_RECHARGE,
+    PERMISSIONS.REPORT_WALLET,
+  ],
+});
