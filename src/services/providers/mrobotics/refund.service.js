@@ -3,12 +3,6 @@ import { signatureService } from './signature.service.js';
 import { mapperService } from './mapper.service.js';
 import env from '../../../config/env.js';
 
-/**
- * MRobotics Refund Service
- *
- * PLACEHOLDER endpoint: POST /api/recharge/refund
- * Update endpoint and field names once official docs are received.
- */
 export const mroboticsRefundService = {
   async requestRefund({ providerTxnId, clientTxnId, amount, reason = '' }) {
     const timestamp = Date.now().toString();
@@ -21,7 +15,7 @@ export const mroboticsRefundService = {
 
     const payload = {
       memberId: env.mrobotics.memberId,
-      txnId: providerTxnId,            // PLACEHOLDER field name
+      txnId: providerTxnId,
       clientTxnId,
       amount: String(amount),
       reason,
@@ -31,7 +25,7 @@ export const mroboticsRefundService = {
 
     const raw = await mroboticsRequest({
       method: 'POST',
-      endpoint: '/api/recharge/refund', // PLACEHOLDER endpoint
+      endpoint: '/api/recharge/refund',
       data: payload,
       retryable: false,
     });

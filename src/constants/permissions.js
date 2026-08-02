@@ -1,12 +1,10 @@
 export const PERMISSIONS = Object.freeze({
-  // ─── Auth ───────────────────────────────────────────────────
   AUTH_LOGIN: 'auth:login',
   AUTH_LOGOUT: 'auth:logout',
   AUTH_REFRESH: 'auth:refresh',
   AUTH_CHANGE_PASSWORD: 'auth:change_password',
   AUTH_FORGOT_PASSWORD: 'auth:forgot_password',
 
-  // ─── Users ──────────────────────────────────────────────────
   USER_CREATE: 'user:create',
   USER_READ: 'user:read',
   USER_UPDATE: 'user:update',
@@ -15,14 +13,12 @@ export const PERMISSIONS = Object.freeze({
   USER_BLOCK: 'user:block',
   USER_UNBLOCK: 'user:unblock',
 
-  // ─── Retailer ───────────────────────────────────────────────
   RETAILER_CREATE: 'retailer:create',
   RETAILER_READ: 'retailer:read',
   RETAILER_UPDATE: 'retailer:update',
   RETAILER_DELETE: 'retailer:delete',
   RETAILER_LIST: 'retailer:list',
 
-  // ─── Wallet ─────────────────────────────────────────────────
   WALLET_READ: 'wallet:read',
   WALLET_CREDIT: 'wallet:credit',
   WALLET_DEBIT: 'wallet:debit',
@@ -31,7 +27,6 @@ export const PERMISSIONS = Object.freeze({
   WALLET_STATEMENT: 'wallet:statement',
   WALLET_LEDGER: 'wallet:ledger',
 
-  // ─── Recharge ───────────────────────────────────────────────
   RECHARGE_INITIATE: 'recharge:initiate',
   RECHARGE_READ: 'recharge:read',
   RECHARGE_LIST: 'recharge:list',
@@ -40,7 +35,6 @@ export const PERMISSIONS = Object.freeze({
   RECHARGE_REFUND: 'recharge:refund',
   RECHARGE_CANCEL: 'recharge:cancel',
 
-  // ─── Operator / Circle / Plans ──────────────────────────────
   OPERATOR_CREATE: 'operator:create',
   OPERATOR_READ: 'operator:read',
   OPERATOR_UPDATE: 'operator:update',
@@ -59,41 +53,34 @@ export const PERMISSIONS = Object.freeze({
   PLAN_DELETE: 'plan:delete',
   PLAN_LIST: 'plan:list',
 
-  // ─── Reports ────────────────────────────────────────────────
   REPORT_SALES: 'report:sales',
   REPORT_WALLET: 'report:wallet',
   REPORT_RECHARGE: 'report:recharge',
   REPORT_COMMISSION: 'report:commission',
 
-  // ─── Notifications ──────────────────────────────────────────
   NOTIFICATION_READ: 'notification:read',
   NOTIFICATION_CREATE: 'notification:create',
   NOTIFICATION_DELETE: 'notification:delete',
   NOTIFICATION_BROADCAST: 'notification:broadcast',
 
-  // ─── API Keys ───────────────────────────────────────────────
   API_KEY_CREATE: 'api_key:create',
   API_KEY_READ: 'api_key:read',
   API_KEY_REVOKE: 'api_key:revoke',
   API_KEY_LIST: 'api_key:list',
 
-  // ─── Settings ───────────────────────────────────────────────
   SETTINGS_READ: 'settings:read',
   SETTINGS_UPDATE: 'settings:update',
 
-  // ─── Logs ───────────────────────────────────────────────────
   LOG_ACTIVITY: 'log:activity',
   LOG_AUDIT: 'log:audit',
   LOG_API: 'log:api',
   LOG_WEBHOOK: 'log:webhook',
 
-  // ─── Providers ──────────────────────────────────────────────
   PROVIDER_READ: 'provider:read',
   PROVIDER_UPDATE: 'provider:update',
   PROVIDER_BALANCE: 'provider:balance',
 });
 
-// Default permissions per role
 export const ROLE_PERMISSIONS = Object.freeze({
   super_admin: Object.values(PERMISSIONS),
 

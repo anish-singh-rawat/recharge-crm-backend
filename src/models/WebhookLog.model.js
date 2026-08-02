@@ -78,7 +78,6 @@ webhookLogSchema.index({ providerTxnId: 1 });
 webhookLogSchema.index({ internalTxnId: 1 });
 webhookLogSchema.index({ isProcessed: 1, createdAt: -1 });
 webhookLogSchema.index({ idempotencyKey: 1 }, { sparse: true });
-// TTL: auto-delete after 90 days
 webhookLogSchema.index(
   { createdAt: 1 },
   { expireAfterSeconds: 90 * 24 * 60 * 60 },

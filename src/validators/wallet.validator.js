@@ -59,6 +59,12 @@ export const unfreezeWalletValidator = [
   validate,
 ];
 
+export const myWalletStatementValidator = [
+  ...paginationQuery,
+  ...dateRangeQuery,
+  validate,
+];
+
 export const walletStatementValidator = [
   mongoIdParam('userId'),
   ...paginationQuery,

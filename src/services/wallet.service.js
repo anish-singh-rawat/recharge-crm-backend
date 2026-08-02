@@ -13,18 +13,12 @@ import { NOTIFICATION_EVENT, NOTIFICATION_TYPE } from '../constants/notification
 import { walletLogger } from '../config/logger.js';
 
 export const walletService = {
-  /**
-   * Get wallet by user ID.
-   */
   async getWallet(userId) {
     const wallet = await walletRepository.findByUserId(userId);
     if (!wallet) throw new NotFoundError('Wallet not found');
     return wallet;
   },
 
-  /**
-   * Credit a wallet — admin only.
-   */
   async credit(targetUserId, amount, description, remarks = '', performedBy) {
     const targetUser = await userRepository.findById(targetUserId);
     if (!targetUser) throw new NotFoundError('User not found');
@@ -57,7 +51,6 @@ export const walletService = {
 
       await session.commitTransaction();
 
-      // Non-blocking notifications & audit
       notificationRepository.create({
         user: targetUserId,
         title: 'Wallet Credited',
@@ -88,9 +81,6 @@ export const walletService = {
     }
   },
 
-  /**
-   * Debit a wallet — admin only.
-   */
   async debit(targetUserId, amount, description, remarks = '', performedBy) {
     const targetUser = await userRepository.findById(targetUserId);
     if (!targetUser) throw new NotFoundError('User not found');
@@ -151,9 +141,6 @@ export const walletService = {
     }
   },
 
-  /**
-   * Freeze a wallet.
-   */
   async freeze(targetUserId, reason, performedBy) {
     const wallet = await walletRepository.findByUserId(targetUserId);
     if (!wallet) throw new NotFoundError('Wallet not found');
@@ -181,9 +168,6 @@ export const walletService = {
     return updated;
   },
 
-  /**
-   * Unfreeze a wallet.
-   */
   async unfreeze(targetUserId, performedBy) {
     const wallet = await walletRepository.findByUserId(targetUserId);
     if (!wallet) throw new NotFoundError('Wallet not found');
@@ -211,9 +195,6 @@ export const walletService = {
     return updated;
   },
 
-  /**
-   * Get paginated wallet statement for a user.
-   */
   async getStatement(userId, query) {
     const { filter, pagination, sort } = buildListQuery(query, {
       exactFields: ['type', 'status'],
@@ -223,15 +204,9 @@ export const walletService = {
     const wallet = await walletRepository.findByUserId(userId);
     if (!wallet) throw new NotFoundError('Wallet not found');
 
-    return walletTransactionRepository.findByWallet(wallet._id, filter, {
-      ...pagination,
-      sort,
-    });
+    return walletTransactionRepository.findByWallet(wallet._id, filter, { ...pagination, sort });
   },
 
-  /**
-   * Get wallet ledger (all transactions across the system — admin).
-   */
   async getLedger(query) {
     const { filter, pagination, sort } = buildListQuery(query, {
       exactFields: ['type', 'status'],
@@ -240,9 +215,6 @@ export const walletService = {
     return walletTransactionRepository.findPaginated(filter, { ...pagination, sort });
   },
 
-  /**
-   * Internal: debit wallet for a recharge (called from recharge service).
-   */
   async debitForRecharge(walletId, amount, txnId, userId, session = null) {
     const wallet = await walletRepository.model.findById(walletId);
     assertWalletCanDebit(wallet, amount);
@@ -266,9 +238,6 @@ export const walletService = {
     return { updatedWallet, walletTxn };
   },
 
-  /**
-   * Internal: refund wallet after failed recharge.
-   */
   async refundFromRecharge(walletId, amount, txnId, userId) {
     const wallet = await walletRepository.model.findById(walletId);
     const updatedWallet = await walletRepository.creditBalance(walletId, amount);

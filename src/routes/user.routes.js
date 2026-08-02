@@ -14,25 +14,9 @@ import { ROLES } from '../constants/roles.js';
 
 const router = Router();
 
-/**
- * @swagger
- * tags:
- *   name: Users
- *   description: User management (Admin/Super Admin)
- */
 
 router.use(authenticate);
 
-/**
- * @swagger
- * /users:
- *   get:
- *     summary: List all users (paginated)
- *     tags: [Users]
- *   post:
- *     summary: Create a new user / retailer
- *     tags: [Users]
- */
 router.get(
   '/',
   authorizePermissions(PERMISSIONS.USER_LIST),
@@ -47,19 +31,6 @@ router.post(
   userController.createUser,
 );
 
-/**
- * @swagger
- * /users/{id}:
- *   get:
- *     summary: Get user by ID
- *     tags: [Users]
- *   put:
- *     summary: Update user
- *     tags: [Users]
- *   delete:
- *     summary: Soft-delete user
- *     tags: [Users]
- */
 router.get(
   '/:id',
   [mongoIdParam('id')],
@@ -81,13 +52,6 @@ router.delete(
   userController.deleteUser,
 );
 
-/**
- * @swagger
- * /users/{id}/block:
- *   patch:
- *     summary: Block a user
- *     tags: [Users]
- */
 router.patch(
   '/:id/block',
   authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN),
@@ -95,13 +59,6 @@ router.patch(
   userController.blockUser,
 );
 
-/**
- * @swagger
- * /users/{id}/unblock:
- *   patch:
- *     summary: Unblock a user
- *     tags: [Users]
- */
 router.patch(
   '/:id/unblock',
   [mongoIdParam('id')],

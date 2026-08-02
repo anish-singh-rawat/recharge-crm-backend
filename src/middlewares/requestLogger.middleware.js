@@ -5,9 +5,6 @@ import { ApiLog } from '../models/index.js';
 
 const SENSITIVE_FIELDS = ['password', 'confirmPassword', 'currentPassword', 'newPassword', 'token', 'refreshToken', 'apiKey', 'secret'];
 
-/**
- * Attach a unique requestId and correlationId to every request.
- */
 export const requestIdMiddleware = (req, res, next) => {
   req.requestId = req.headers['x-request-id'] || generateRequestId();
   req.correlationId = req.headers['x-correlation-id'] || req.requestId;
@@ -19,10 +16,6 @@ export const requestIdMiddleware = (req, res, next) => {
   next();
 };
 
-/**
- * Log incoming requests and outgoing responses.
- * Saves API logs to MongoDB for audit trail.
- */
 export const requestResponseLogger = (req, res, next) => {
   const originalJson = res.json.bind(res);
 
@@ -53,7 +46,6 @@ export const requestResponseLogger = (req, res, next) => {
       body: maskSensitiveFields(req.body || {}, SENSITIVE_FIELDS),
     });
 
-    // Persist to DB only for errors or important paths
     if (isError || req.path.includes('/recharge') || req.path.includes('/wallet')) {
       ApiLog.create({
         requestId: req.requestId,

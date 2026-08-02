@@ -4,7 +4,6 @@ import { asyncHandler } from '../utils/async.util.js';
 import { HTTP_STATUS } from '../constants/http.js';
 
 export const operatorController = {
-  // ── Operators ──────────────────────────────────────────────────────────────
 
   createOperator: asyncHandler(async (req, res) => {
     const operator = await operatorService.createOperator(req.body, req.user.id);
@@ -47,7 +46,6 @@ export const operatorController = {
     sendSuccess(res, { message: 'Operator deactivated successfully' });
   }),
 
-  // ── Circles ────────────────────────────────────────────────────────────────
 
   createCircle: asyncHandler(async (req, res) => {
     const circle = await operatorService.createCircle(req.body, req.user.id);
@@ -73,7 +71,6 @@ export const operatorController = {
     sendSuccess(res, { message: 'Circle updated successfully', data: { circle } });
   }),
 
-  // ── Plans ──────────────────────────────────────────────────────────────────
 
   createPlan: asyncHandler(async (req, res) => {
     const plan = await operatorService.createPlan(req.body, req.user.id);

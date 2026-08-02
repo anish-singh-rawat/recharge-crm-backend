@@ -7,12 +7,6 @@ import { ROLES } from '../constants/roles.js';
 
 const router = Router();
 
-/**
- * @swagger
- * tags:
- *   name: Logs
- *   description: Activity, audit and webhook logs
- */
 
 router.use(authenticate);
 router.use(authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN));

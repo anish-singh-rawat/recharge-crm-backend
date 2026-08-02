@@ -1,6 +1,6 @@
 import '../config/env.js';
 import { connectDB } from '../config/database.js';
-import { User, Role, Setting, RechargeProvider } from '../models/index.js';
+import { User, Role, Setting, RechargeProvider, Wallet } from '../models/index.js';
 import { ROLES } from '../constants/roles.js';
 import { ROLE_PERMISSIONS } from '../constants/permissions.js';
 import { PROVIDER_CODES } from '../constants/provider.js';
@@ -37,7 +37,6 @@ const seedSuperAdmin = async () => {
     isPhoneVerified: true,
   });
 
-  const { Wallet } = await import('../models/index.js');
   const wallet = await Wallet.create({ user: admin._id, walletLimit: 10000000 });
   await User.findByIdAndUpdate(admin._id, { wallet: wallet._id });
 

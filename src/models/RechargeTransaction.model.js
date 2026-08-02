@@ -3,7 +3,6 @@ import { TRANSACTION_STATUS, RECHARGE_TYPE } from '../constants/transaction.js';
 
 const rechargeTransactionSchema = new mongoose.Schema(
   {
-    // ── Internal IDs ──────────────────────────────────────────
     txnId: {
       type: String,
       required: true,
@@ -16,7 +15,6 @@ const rechargeTransactionSchema = new mongoose.Schema(
       default: null,
     },
 
-    // ── Relations ─────────────────────────────────────────────
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -48,7 +46,6 @@ const rechargeTransactionSchema = new mongoose.Schema(
       default: null,
     },
 
-    // ── Recharge Details ──────────────────────────────────────
     mobileNumber: {
       type: String,
       required: true,
@@ -65,7 +62,6 @@ const rechargeTransactionSchema = new mongoose.Schema(
       required: true,
     },
 
-    // ── Status ────────────────────────────────────────────────
     status: {
       type: String,
       enum: Object.values(TRANSACTION_STATUS),
@@ -76,7 +72,6 @@ const rechargeTransactionSchema = new mongoose.Schema(
       default: '',
     },
 
-    // ── Provider Response ─────────────────────────────────────
     providerTxnId: {
       type: String,
       trim: true,
@@ -97,10 +92,9 @@ const rechargeTransactionSchema = new mongoose.Schema(
     operatorRef: {
       type: String,
       trim: true,
-      default: null, // operator's own reference number
+      default: null,
     },
 
-    // ── Financial ─────────────────────────────────────────────
     commission: {
       type: Number,
       default: 0,
@@ -111,14 +105,13 @@ const rechargeTransactionSchema = new mongoose.Schema(
     },
     netAmount: {
       type: Number,
-      default: 0, // amount - commission
+      default: 0,
     },
     refundAmount: {
       type: Number,
       default: 0,
     },
 
-    // ── Retry ─────────────────────────────────────────────────
     retryCount: {
       type: Number,
       default: 0,
@@ -144,7 +137,6 @@ const rechargeTransactionSchema = new mongoose.Schema(
       default: false,
     },
 
-    // ── Settlement ────────────────────────────────────────────
     isSettled: {
       type: Boolean,
       default: false,
@@ -154,7 +146,6 @@ const rechargeTransactionSchema = new mongoose.Schema(
       default: null,
     },
 
-    // ── Timestamps ────────────────────────────────────────────
     initiatedAt: {
       type: Date,
       default: Date.now,
@@ -168,7 +159,6 @@ const rechargeTransactionSchema = new mongoose.Schema(
       default: null,
     },
 
-    // ── Request context ───────────────────────────────────────
     ipAddress: {
       type: String,
       default: '',
@@ -182,7 +172,6 @@ const rechargeTransactionSchema = new mongoose.Schema(
       default: null,
     },
 
-    // ── Raw responses (for debugging / dispute resolution) ────
     providerRequest: {
       type: mongoose.Schema.Types.Mixed,
       default: null,
@@ -205,7 +194,6 @@ const rechargeTransactionSchema = new mongoose.Schema(
   },
 );
 
-// ── Indexes ───────────────────────────────────────────────────────────────────
 rechargeTransactionSchema.index({ txnId: 1 }, { unique: true });
 rechargeTransactionSchema.index({ user: 1, createdAt: -1 });
 rechargeTransactionSchema.index({ mobileNumber: 1, createdAt: -1 });

@@ -6,7 +6,6 @@ import { asyncHandler } from '../utils/async.util.js';
 export const providerController = {
   getProviderBalance: asyncHandler(async (req, res) => {
     const result = await mroboticsProvider.getBalance();
-    // Update stored balance
     rechargeProviderRepository.updateBalance('MROBOTICS', result.balance).catch(() => {});
     sendSuccess(res, { message: 'Provider balance retrieved', data: result });
   }),

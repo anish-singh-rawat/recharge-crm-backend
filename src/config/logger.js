@@ -15,7 +15,6 @@ const MAX_FILES = process.env.LOG_MAX_FILES || '14d';
 
 const { combine, timestamp, errors, json, colorize, printf, splat } = winston.format;
 
-// ── Pretty format for development console ────────────────────────────────────
 const devFormat = combine(
   colorize({ all: true }),
   timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
@@ -27,7 +26,6 @@ const devFormat = combine(
   }),
 );
 
-// ── JSON format for production file logs ─────────────────────────────────────
 const prodFormat = combine(
   timestamp(),
   errors({ stack: true }),
@@ -47,9 +45,7 @@ const fileTransportOptions = (filename, level) => ({
 });
 
 const transports = [
-  // All logs
   new DailyRotateFile(fileTransportOptions('combined', 'debug')),
-  // Error-only log
   new DailyRotateFile(fileTransportOptions('error', 'error')),
 ];
 
@@ -73,7 +69,6 @@ const logger = winston.createLogger({
   exitOnError: false,
 });
 
-// ── Specialised child loggers ─────────────────────────────────────────────────
 export const authLogger = logger.child({ module: 'auth' });
 export const walletLogger = logger.child({ module: 'wallet' });
 export const rechargeLogger = logger.child({ module: 'recharge' });

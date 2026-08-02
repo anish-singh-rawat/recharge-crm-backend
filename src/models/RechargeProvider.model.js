@@ -45,7 +45,7 @@ const rechargeProviderSchema = new mongoose.Schema(
     },
     priority: {
       type: Number,
-      default: 1, // Lower number = higher priority for failover
+      default: 1,
     },
     timeoutMs: {
       type: Number,

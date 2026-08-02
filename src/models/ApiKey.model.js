@@ -16,18 +16,17 @@ const apiKeySchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
-      // First 8 chars of the key — safe to display
     },
     keyHash: {
       type: String,
       required: true,
       unique: true,
-      select: false, // never expose the hash
+      select: false,
     },
     encryptedKey: {
       type: String,
       required: true,
-      select: false, // AES encrypted full key
+      select: false,
     },
     permissions: {
       type: [String],
@@ -35,7 +34,7 @@ const apiKeySchema = new mongoose.Schema(
     },
     allowedIps: {
       type: [String],
-      default: [], // empty = allow all IPs
+      default: [],
     },
     isActive: {
       type: Boolean,
@@ -43,7 +42,7 @@ const apiKeySchema = new mongoose.Schema(
     },
     expiresAt: {
       type: Date,
-      default: null, // null = never expires
+      default: null,
     },
     lastUsedAt: {
       type: Date,

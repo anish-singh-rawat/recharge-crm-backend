@@ -15,24 +15,10 @@ import { ROLES } from '../constants/roles.js';
 
 const router = Router();
 
-/**
- * @swagger
- * tags:
- *   name: Recharge
- *   description: Mobile/DTH/Utility recharge
- */
 
 router.use(authenticate);
 
-// ── Retailer routes ────────────────────────────────────────────────────────────
 
-/**
- * @swagger
- * /recharge:
- *   post:
- *     summary: Initiate a recharge
- *     tags: [Recharge]
- */
 router.post(
   '/',
   rechargeRateLimiter,
@@ -41,13 +27,6 @@ router.post(
   rechargeController.initiateRecharge,
 );
 
-/**
- * @swagger
- * /recharge/my:
- *   get:
- *     summary: Get my recharge transactions
- *     tags: [Recharge]
- */
 router.get(
   '/my',
   authorizePermissions(PERMISSIONS.RECHARGE_LIST),
@@ -55,13 +34,6 @@ router.get(
   rechargeController.getMyTransactions,
 );
 
-/**
- * @swagger
- * /recharge/status/{txnId}:
- *   get:
- *     summary: Get recharge status (retailer — own txn only)
- *     tags: [Recharge]
- */
 router.get(
   '/status/:txnId',
   authorizePermissions(PERMISSIONS.RECHARGE_STATUS),
@@ -69,15 +41,7 @@ router.get(
   rechargeController.getStatus,
 );
 
-// ── Admin routes ───────────────────────────────────────────────────────────────
 
-/**
- * @swagger
- * /recharge/all:
- *   get:
- *     summary: List all recharge transactions (Admin)
- *     tags: [Recharge]
- */
 router.get(
   '/all',
   authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN),
@@ -86,13 +50,6 @@ router.get(
   rechargeController.listAllTransactions,
 );
 
-/**
- * @swagger
- * /recharge/admin/status/{txnId}:
- *   get:
- *     summary: Get any transaction status (Admin)
- *     tags: [Recharge]
- */
 router.get(
   '/admin/status/:txnId',
   authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN),
@@ -100,13 +57,6 @@ router.get(
   rechargeController.getStatusAdmin,
 );
 
-/**
- * @swagger
- * /recharge/{txnId}/retry:
- *   post:
- *     summary: Retry a failed recharge (Admin)
- *     tags: [Recharge]
- */
 router.post(
   '/:txnId/retry',
   authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN),
@@ -115,13 +65,6 @@ router.post(
   rechargeController.retryRecharge,
 );
 
-/**
- * @swagger
- * /recharge/{txnId}/refund:
- *   post:
- *     summary: Refund a recharge (Admin)
- *     tags: [Recharge]
- */
 router.post(
   '/:txnId/refund',
   authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN),

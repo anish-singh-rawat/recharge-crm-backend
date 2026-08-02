@@ -28,7 +28,6 @@ const settingSchema = new mongoose.Schema(
       trim: true,
       lowercase: true,
       default: 'general',
-      // e.g. 'general', 'wallet', 'recharge', 'notification', 'security'
     },
     dataType: {
       type: String,
@@ -37,7 +36,7 @@ const settingSchema = new mongoose.Schema(
     },
     isPublic: {
       type: Boolean,
-      default: false, // public settings can be read without auth
+      default: false,
     },
     isEditable: {
       type: Boolean,

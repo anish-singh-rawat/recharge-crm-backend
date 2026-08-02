@@ -4,9 +4,6 @@ import { HTTP_STATUS } from '../constants/http.js';
 import logger from '../config/logger.js';
 import env from '../config/env.js';
 
-/**
- * 404 — route not found handler. Register AFTER all routes.
- */
 export const notFoundHandler = (req, res) => {
   res.status(HTTP_STATUS.NOT_FOUND).json({
     success: false,
@@ -15,16 +12,11 @@ export const notFoundHandler = (req, res) => {
   });
 };
 
-/**
- * Global error handler. Must have 4 params for Express to recognise it.
- */
-// eslint-disable-next-line no-unused-vars
 export const globalErrorHandler = (err, req, res, next) => {
   let statusCode = HTTP_STATUS.INTERNAL_SERVER_ERROR;
   let message = 'Internal server error';
   let errors = [];
 
-  // ── Operational errors (our AppError subclasses) ──────────────────────────
   if (err instanceof AppError) {
     statusCode = err.statusCode;
     message = err.message;
@@ -47,14 +39,12 @@ export const globalErrorHandler = (err, req, res, next) => {
     }
   }
 
-  // ── Mongoose CastError (invalid ObjectId) ─────────────────────────────────
   else if (err instanceof mongoose.Error.CastError) {
     statusCode = HTTP_STATUS.BAD_REQUEST;
     message = `Invalid value for field '${err.path}': ${err.value}`;
     logger.warn('Mongoose CastError', { error: err.message, path: req.originalUrl });
   }
 
-  // ── Mongoose ValidationError ──────────────────────────────────────────────
   else if (err instanceof mongoose.Error.ValidationError) {
     statusCode = HTTP_STATUS.UNPROCESSABLE_ENTITY;
     message = 'Database validation failed';
@@ -65,7 +55,6 @@ export const globalErrorHandler = (err, req, res, next) => {
     logger.warn('Mongoose ValidationError', { error: err.message });
   }
 
-  // ── MongoDB duplicate key ─────────────────────────────────────────────────
   else if (err.code === 11000) {
     statusCode = HTTP_STATUS.CONFLICT;
     const field = Object.keys(err.keyValue || {})[0] || 'field';
@@ -74,7 +63,6 @@ export const globalErrorHandler = (err, req, res, next) => {
     logger.warn('MongoDB duplicate key', { field, value });
   }
 
-  // ── JWT errors ────────────────────────────────────────────────────────────
   else if (err.name === 'JsonWebTokenError') {
     statusCode = HTTP_STATUS.UNAUTHORIZED;
     message = 'Invalid token';
@@ -83,13 +71,11 @@ export const globalErrorHandler = (err, req, res, next) => {
     message = 'Token has expired';
   }
 
-  // ── Multer file size error ────────────────────────────────────────────────
   else if (err.code === 'LIMIT_FILE_SIZE') {
     statusCode = HTTP_STATUS.BAD_REQUEST;
     message = 'File size exceeds the allowed limit';
   }
 
-  // ── Unknown programming errors ────────────────────────────────────────────
   else {
     logger.error('Unhandled error', {
       name: err.name,

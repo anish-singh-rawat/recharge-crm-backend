@@ -12,7 +12,6 @@ emitter.on(WALLET_EVENTS.BALANCE_UPDATED, ({ userId, balance, transaction }) => 
   try {
     getIO().to(`user:${userId}`).emit('wallet:update', { balance, transaction });
   } catch {
-    // socket not ready
   }
 });
 
@@ -20,7 +19,6 @@ emitter.on(WALLET_EVENTS.FROZEN, ({ userId }) => {
   try {
     getIO().to(`user:${userId}`).emit('wallet:frozen');
   } catch {
-    // socket not ready
   }
 });
 
@@ -28,7 +26,6 @@ emitter.on(WALLET_EVENTS.UNFROZEN, ({ userId }) => {
   try {
     getIO().to(`user:${userId}`).emit('wallet:unfrozen');
   } catch {
-    // socket not ready
   }
 });
 

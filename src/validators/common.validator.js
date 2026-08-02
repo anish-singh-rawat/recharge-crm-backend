@@ -1,9 +1,6 @@
 import { body, param, query, validationResult } from 'express-validator';
 import { HTTP_STATUS } from '../constants/http.js';
 
-/**
- * Central validation result handler — attach as last middleware in a chain.
- */
 export const validate = (req, res, next) => {
   const errors = validationResult(req);
   if (errors.isEmpty()) return next();
@@ -21,7 +18,6 @@ export const validate = (req, res, next) => {
   });
 };
 
-// ── Reusable field validators ─────────────────────────────────────────────────
 
 export const mongoIdParam = (paramName = 'id') =>
   param(paramName)

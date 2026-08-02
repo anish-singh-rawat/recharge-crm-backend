@@ -24,14 +24,12 @@ const permissionSchema = new mongoose.Schema(
       required: true,
       trim: true,
       lowercase: true,
-      // e.g. 'wallet', 'recharge', 'user'
     },
     action: {
       type: String,
       required: true,
       trim: true,
       lowercase: true,
-      // e.g. 'read', 'write', 'delete'
     },
     isActive: {
       type: Boolean,

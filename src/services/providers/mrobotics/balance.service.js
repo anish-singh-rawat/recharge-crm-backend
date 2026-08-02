@@ -3,12 +3,6 @@ import { signatureService } from './signature.service.js';
 import { mapperService } from './mapper.service.js';
 import env from '../../../config/env.js';
 
-/**
- * MRobotics Balance Service
- *
- * PLACEHOLDER endpoint: GET /api/account/balance
- * Update endpoint and field names once official docs are received.
- */
 export const mroboticsBalanceService = {
   async getBalance() {
     const timestamp = Date.now().toString();
@@ -22,7 +16,7 @@ export const mroboticsBalanceService = {
 
     const raw = await mroboticsRequest({
       method: 'GET',
-      endpoint: '/api/account/balance', // PLACEHOLDER endpoint
+      endpoint: '/api/account/balance',
       data: params,
       retryable: true,
     });

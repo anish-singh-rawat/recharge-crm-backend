@@ -21,14 +21,6 @@ const getTransporter = () => {
   return transporter;
 };
 
-/**
- * Send an email.
- * @param {object} options
- * @param {string|string[]} options.to
- * @param {string} options.subject
- * @param {string} options.html
- * @param {string} [options.text]
- */
 export const sendMail = async ({ to, subject, html, text }) => {
   const mailer = getTransporter();
   const mailOptions = {
@@ -49,7 +41,6 @@ export const sendMail = async ({ to, subject, html, text }) => {
   }
 };
 
-// ── Email templates ───────────────────────────────────────────────────────────
 
 export const sendPasswordResetEmail = (to, { name, resetUrl }) =>
   sendMail({

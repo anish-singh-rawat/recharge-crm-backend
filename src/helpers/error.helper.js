@@ -1,15 +1,12 @@
 import { HTTP_STATUS } from '../constants/http.js';
 
-/**
- * Base application error — all custom errors extend this.
- */
 export class AppError extends Error {
   constructor(message, statusCode = HTTP_STATUS.INTERNAL_SERVER_ERROR, errors = []) {
     super(message);
     this.name = this.constructor.name;
     this.statusCode = statusCode;
     this.errors = errors;
-    this.isOperational = true; // distinguishes from programming errors
+    this.isOperational = true;
     Error.captureStackTrace(this, this.constructor);
   }
 }

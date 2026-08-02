@@ -1,18 +1,10 @@
 import { ActivityLog } from '../models/index.js';
 import logger from '../config/logger.js';
 
-/**
- * Factory — create an activity log middleware for a specific action.
- *
- * @param {string} action   e.g. 'LOGIN', 'RECHARGE_INITIATED'
- * @param {string} module   e.g. 'auth', 'recharge'
- * @param {Function} [descFn]  Optional (req, res) => string for dynamic description
- */
 export const logActivity = (action, module, descFn = null) => (req, res, next) => {
   const originalJson = res.json.bind(res);
 
   res.json = (body) => {
-    // Only log on success
     if (body?.success) {
       const description = descFn ? descFn(req, body) : `${action} performed`;
       ActivityLog.create({

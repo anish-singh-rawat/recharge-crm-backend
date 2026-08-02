@@ -13,12 +13,6 @@ import { ROLES } from '../constants/roles.js';
 
 const router = Router();
 
-/**
- * @swagger
- * tags:
- *   name: Reports
- *   description: Business intelligence reports
- */
 
 router.use(authenticate);
 

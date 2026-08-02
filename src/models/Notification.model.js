@@ -71,7 +71,6 @@ const notificationSchema = new mongoose.Schema(
 notificationSchema.index({ user: 1, isRead: 1, createdAt: -1 });
 notificationSchema.index({ user: 1, createdAt: -1 });
 notificationSchema.index({ isBroadcast: 1, createdAt: -1 });
-// TTL: auto-delete notifications after 90 days
 notificationSchema.index(
   { createdAt: 1 },
   { expireAfterSeconds: 90 * 24 * 60 * 60 },

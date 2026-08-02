@@ -62,7 +62,6 @@ const walletSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
-    // Optimistic concurrency version for atomic balance updates
     __v: {
       type: Number,
       default: 0,
@@ -77,12 +76,10 @@ const walletSchema = new mongoose.Schema(
 walletSchema.index({ user: 1 }, { unique: true });
 walletSchema.index({ status: 1 });
 
-// ── Method: check if wallet can transact ──────────────────────────────────────
 walletSchema.methods.canTransact = function () {
   return this.status === WALLET_STATUS.ACTIVE;
 };
 
-// ── Method: has sufficient balance ────────────────────────────────────────────
 walletSchema.methods.hasSufficientBalance = function (amount) {
   return this.balance >= amount;
 };

@@ -4,10 +4,6 @@ import { AuthenticationError } from '../helpers/error.helper.js';
 import { asyncHandler } from '../utils/async.util.js';
 import logger from '../config/logger.js';
 
-/**
- * Verify JWT access token and attach user to req.user.
- * Throws AuthenticationError on any failure.
- */
 export const authenticate = asyncHandler(async (req, res, next) => {
   const token = extractBearerToken(req.headers.authorization)
     || req.cookies?.accessToken;
@@ -30,12 +26,10 @@ export const authenticate = asyncHandler(async (req, res, next) => {
   if (!user.isActive) throw new AuthenticationError('Account is deactivated');
   if (user.isBlocked) throw new AuthenticationError('Account is blocked. Contact support.');
 
-  // Check if account is locked
   if (user.lockUntil && new Date(user.lockUntil) > new Date()) {
     throw new AuthenticationError('Account is temporarily locked due to failed login attempts');
   }
 
-  // Check if password changed after token was issued
   if (user.passwordChangedAt) {
     const changedTs = Math.floor(new Date(user.passwordChangedAt).getTime() / 1000);
     if (decoded.iat < changedTs) {
@@ -43,7 +37,6 @@ export const authenticate = asyncHandler(async (req, res, next) => {
     }
   }
 
-  // Attach minimal user info to request
   req.user = {
     id: user._id.toString(),
     _id: user._id,
@@ -53,6 +46,7 @@ export const authenticate = asyncHandler(async (req, res, next) => {
     role: user.role,
     permissions: user.permissions || [],
     wallet: user.wallet,
+    commissionRate: user.commissionRate || 0,
   };
 
   req.requestId = req.requestId || `REQ-${Date.now()}`;
@@ -66,9 +60,6 @@ export const authenticate = asyncHandler(async (req, res, next) => {
   next();
 });
 
-/**
- * Optional authentication — sets req.user if token present, continues regardless.
- */
 export const optionalAuthenticate = asyncHandler(async (req, res, next) => {
   const token = extractBearerToken(req.headers.authorization)
     || req.cookies?.accessToken;
@@ -87,10 +78,10 @@ export const optionalAuthenticate = asyncHandler(async (req, res, next) => {
         role: user.role,
         permissions: user.permissions || [],
         wallet: user.wallet,
+        commissionRate: user.commissionRate || 0,
       };
     }
   } catch {
-    // Token invalid/expired — continue unauthenticated
   }
 
   next();

@@ -5,7 +5,6 @@ import { auditLogRepository } from '../repositories/log.repository.js';
 import { AUDIT_ACTION, AUDIT_SEVERITY } from '../constants/audit.js';
 
 export const operatorService = {
-  // ── Operators ─────────────────────────────────────────────────────────────
 
   async createOperator(data, performedBy) {
     const existing = await operatorRepository.findByCode(data.code);
@@ -74,7 +73,6 @@ export const operatorService = {
     }).catch(() => {});
   },
 
-  // ── Circles ───────────────────────────────────────────────────────────────
 
   async createCircle(data, performedBy) {
     const existing = await circleRepository.findByCode(data.code);
@@ -98,7 +96,6 @@ export const operatorService = {
     return circleRepository.updateById(id, { $set: data });
   },
 
-  // ── Plans ─────────────────────────────────────────────────────────────────
 
   async createPlan(data, performedBy) {
     const plan = await planRepository.create(data);

@@ -69,7 +69,7 @@ const sessionSchema = new mongoose.Schema(
 
 sessionSchema.index({ user: 1, isActive: 1 });
 sessionSchema.index({ refreshTokenHash: 1 });
-sessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // TTL index
+sessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 const Session = mongoose.model('Session', sessionSchema);
 export default Session;

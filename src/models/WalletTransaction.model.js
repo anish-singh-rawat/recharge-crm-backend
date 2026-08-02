@@ -55,17 +55,17 @@ const walletTransactionSchema = new mongoose.Schema(
     referenceId: {
       type: String,
       trim: true,
-      default: null, // recharge txn id, settlement id, etc.
+      default: null,
     },
     referenceType: {
       type: String,
       trim: true,
-      default: null, // 'RECHARGE', 'SETTLEMENT', 'MANUAL'
+      default: null, 
     },
     performedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      default: null, // admin who performed credit/debit manually
+      default: null,
     },
     metadata: {
       type: mongoose.Schema.Types.Mixed,

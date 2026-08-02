@@ -7,12 +7,6 @@ import { ROLES } from '../constants/roles.js';
 
 const router = Router();
 
-/**
- * @swagger
- * tags:
- *   name: Provider
- *   description: MRobotics provider management
- */
 
 router.use(authenticate);
 router.use(authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN));

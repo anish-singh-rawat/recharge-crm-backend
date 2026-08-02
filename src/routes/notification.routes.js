@@ -13,12 +13,6 @@ import { ROLES } from '../constants/roles.js';
 
 const router = Router();
 
-/**
- * @swagger
- * tags:
- *   name: Notifications
- *   description: Notification management
- */
 
 router.use(authenticate);
 

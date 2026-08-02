@@ -1,9 +1,6 @@
 import { TRANSACTION_STATUS, TERMINAL_STATUSES } from '../constants/transaction.js';
 import { RechargeError } from './error.helper.js';
 
-/**
- * Assert a transaction can be retried.
- */
 export const assertRetryable = (txn) => {
   if (!txn) throw new RechargeError('Transaction not found');
   if (TERMINAL_STATUSES.includes(txn.status) && txn.status !== TRANSACTION_STATUS.FAILED && txn.status !== TRANSACTION_STATUS.TIMEOUT) {
@@ -17,9 +14,6 @@ export const assertRetryable = (txn) => {
   }
 };
 
-/**
- * Assert a transaction can be refunded.
- */
 export const assertRefundable = (txn) => {
   if (!txn) throw new RechargeError('Transaction not found');
   if (txn.status !== TRANSACTION_STATUS.FAILED && txn.status !== TRANSACTION_STATUS.SUCCESS) {
@@ -30,17 +24,11 @@ export const assertRefundable = (txn) => {
   }
 };
 
-/**
- * Determine if a provider status represents success.
- */
 export const isProviderSuccess = (providerStatus, successCodes = ['1', 'SUCCESS', 'success', 'TXN_SUCCESS']) =>
   successCodes.includes(String(providerStatus));
 
-/**
- * Calculate next retry time using exponential backoff.
- */
 export const calcNextRetryAt = (retryCount, baseDelayMs = 60000) => {
   const delay = baseDelayMs * Math.pow(2, retryCount);
-  const maxDelay = 30 * 60 * 1000; // max 30 minutes
+  const maxDelay = 30 * 60 * 1000;
   return new Date(Date.now() + Math.min(delay, maxDelay));
 };

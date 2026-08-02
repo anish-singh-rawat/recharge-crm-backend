@@ -3,12 +3,6 @@ import { signatureService } from './signature.service.js';
 import { mapperService } from './mapper.service.js';
 import env from '../../../config/env.js';
 
-/**
- * MRobotics Operator Service
- *
- * PLACEHOLDER endpoint: GET /api/operator/list
- * Update endpoint and field names once official docs are received.
- */
 export const mroboticsOperatorService = {
   async getOperators(type = null) {
     const timestamp = Date.now().toString();
@@ -20,7 +14,7 @@ export const mroboticsOperatorService = {
 
     const raw = await mroboticsRequest({
       method: 'GET',
-      endpoint: '/api/operator/list',   // PLACEHOLDER endpoint
+      endpoint: '/api/operator/list',
       data: params,
       retryable: true,
     });
@@ -28,10 +22,6 @@ export const mroboticsOperatorService = {
     return mapperService.mapOperatorList(raw);
   },
 
-  /**
-   * Detect operator for a given mobile number.
-   * PLACEHOLDER: GET /api/operator/detect
-   */
   async detectOperator(mobileNumber) {
     const timestamp = Date.now().toString();
     const params = {
@@ -42,7 +32,7 @@ export const mroboticsOperatorService = {
 
     const raw = await mroboticsRequest({
       method: 'GET',
-      endpoint: '/api/operator/detect', // PLACEHOLDER endpoint
+      endpoint: '/api/operator/detect',
       data: params,
       retryable: true,
     });

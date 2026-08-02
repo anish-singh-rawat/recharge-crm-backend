@@ -1,19 +1,7 @@
 import { TRANSACTION_STATUS } from '../../../constants/transaction.js';
 import { MROBOTICS_STATUS, MROBOTICS_STATUS_MAP } from '../../../constants/provider.js';
 
-/**
- * MRobotics Response Mapper
- *
- * Maps raw provider API responses to internal normalised format.
- * All mappings are placeholders — update field paths once official
- * MRobotics API documentation is received. No other layer needs changing.
- */
 export const mapperService = {
-  /**
-   * Map a recharge API response to internal format.
-   * @param {object} raw  Raw MRobotics response
-   * @returns {object}
-   */
   mapRechargeResponse(raw) {
     if (!raw) {
       return {
@@ -28,15 +16,7 @@ export const mapperService = {
       };
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // PLACEHOLDER field mappings — update these paths with official MRobotics
-    // response field names once documentation is available.
-    //
-    // Common field name variations seen in Indian recharge APIs:
-    //   status: raw.status | raw.Status | raw.statusCode | raw.RespCode
-    //   txnId:  raw.txnId  | raw.TxnID  | raw.OperatorId | raw.refId
-    //   message: raw.message | raw.Msg | raw.ResponseMsg
-    // ─────────────────────────────────────────────────────────────────────────
+
     const providerStatus = String(
       raw.status ?? raw.Status ?? raw.statusCode ?? raw.RespCode ?? '',
     );
@@ -54,16 +34,10 @@ export const mapperService = {
     };
   },
 
-  /**
-   * Map a status-check API response to internal format.
-   */
   mapStatusResponse(raw) {
     return this.mapRechargeResponse(raw);
   },
 
-  /**
-   * Map balance response.
-   */
   mapBalanceResponse(raw) {
     return {
       balance: parseFloat(raw?.balance ?? raw?.Balance ?? raw?.amount ?? 0),
@@ -72,9 +46,6 @@ export const mapperService = {
     };
   },
 
-  /**
-   * Map operator list response.
-   */
   mapOperatorList(raw) {
     const list = raw?.operators ?? raw?.data ?? raw ?? [];
     return Array.isArray(list)
@@ -86,9 +57,6 @@ export const mapperService = {
       : [];
   },
 
-  /**
-   * Map plans response.
-   */
   mapPlans(raw) {
     const list = raw?.plans ?? raw?.data ?? raw ?? [];
     return Array.isArray(list)
@@ -103,9 +71,6 @@ export const mapperService = {
       : [];
   },
 
-  /**
-   * Map circle list response.
-   */
   mapCircleList(raw) {
     const list = raw?.circles ?? raw?.data ?? raw ?? [];
     return Array.isArray(list)
@@ -116,9 +81,6 @@ export const mapperService = {
       : [];
   },
 
-  /**
-   * Map a refund response.
-   */
   mapRefundResponse(raw) {
     const providerStatus = String(raw?.status ?? raw?.Status ?? '');
     return {
@@ -129,9 +91,6 @@ export const mapperService = {
     };
   },
 
-  /**
-   * Map a webhook payload to internal normalised format.
-   */
   mapWebhookPayload(payload) {
     const providerStatus = String(
       payload.status ?? payload.Status ?? payload.statusCode ?? '',

@@ -4,35 +4,17 @@ import { sessionRepository } from '../repositories/session.repository.js';
 import { walletRepository } from '../repositories/wallet.repository.js';
 import { auditLogRepository } from '../repositories/log.repository.js';
 import { notificationRepository } from '../repositories/notification.repository.js';
-import {
-  signAccessToken,
-  signRefreshToken,
-  verifyRefreshToken,
-} from '../utils/jwt.util.js';
-import {
-  sha256Hash,
-  generateSecureToken,
-} from '../utils/crypto.util.js';
+import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt.util.js';
+import { sha256Hash } from '../utils/crypto.util.js';
 import { generateOpaqueToken } from '../utils/id.util.js';
 import { addMinutes } from '../utils/date.util.js';
-import {
-  sendPasswordResetEmail,
-  sendWelcomeEmail,
-  sendAccountLockedEmail,
-} from '../utils/mailer.util.js';
-import {
-  AuthenticationError,
-  NotFoundError,
-  ConflictError,
-  BusinessError,
-} from '../helpers/error.helper.js';
+import { sendPasswordResetEmail, sendWelcomeEmail, sendAccountLockedEmail } from '../utils/mailer.util.js';
+import { AuthenticationError, NotFoundError, ConflictError, BusinessError } from '../helpers/error.helper.js';
 import { AUDIT_ACTION, AUDIT_SEVERITY } from '../constants/audit.js';
-import { NOTIFICATION_EVENT, NOTIFICATION_TYPE } from '../constants/notification.js';
 import { ROLES } from '../constants/roles.js';
-import logger, { authLogger } from '../config/logger.js';
+import { authLogger } from '../config/logger.js';
 import env from '../config/env.js';
 
-// ── Token pair builder ────────────────────────────────────────────────────────
 const buildTokenPayload = (user) => ({
   userId: user._id.toString(),
   role: user.role,
@@ -44,11 +26,7 @@ const issueTokenPair = (user) => ({
   refreshToken: signRefreshToken(buildTokenPayload(user)),
 });
 
-// ── Auth Service ──────────────────────────────────────────────────────────────
 export const authService = {
-  /**
-   * Register a new user (admin creates retailer, or super admin creates admin).
-   */
   async register(data, createdBy = null) {
     const { name, email, phone, password, role = ROLES.RETAILER, businessName, commissionRate } = data;
 
@@ -76,23 +54,19 @@ export const authService = {
         parentId: createdBy,
       });
 
-      // Create wallet for the user
       const wallet = await walletRepository.create({
         user: user._id,
         walletLimit: env.wallet.defaultLimit,
       });
 
-      // Link wallet to user
       await userRepository.setWallet(user._id, wallet._id);
 
       await session.commitTransaction();
 
-      // Send welcome email (non-blocking)
       sendWelcomeEmail(email, { name }).catch((err) =>
         authLogger.error('Welcome email failed', { error: err.message }),
       );
 
-      // Audit
       auditLogRepository.create({
         performedBy: createdBy,
         targetUser: user._id,
@@ -112,36 +86,28 @@ export const authService = {
     }
   },
 
-  /**
-   * Login with email/phone and password.
-   */
   async login(identifier, password, deviceInfo = {}, ipAddress = '') {
     const user = await userRepository.findByEmailOrPhone(identifier);
 
     if (!user) throw new AuthenticationError('Invalid credentials');
 
-    // Check account state
     if (user.isBlocked) throw new AuthenticationError('Account is blocked. Contact support.');
     if (!user.isActive) throw new AuthenticationError('Account is deactivated');
 
-    // Check if account is locked
     if (user.lockUntil && new Date(user.lockUntil) > new Date()) {
       const unlockTime = new Date(user.lockUntil).toLocaleString('en-IN');
       throw new AuthenticationError(`Account locked until ${unlockTime}`);
     }
 
-    // Verify password — need a full document for bcrypt
     const userDoc = await userRepository.model.findById(user._id).select('+password');
     const isPasswordValid = await userDoc.comparePassword(password);
 
     if (!isPasswordValid) {
       await userDoc.incrementLoginAttempts();
 
-      // If just locked, send notification
       if (userDoc.lockUntil && new Date(userDoc.lockUntil) > new Date()) {
         const unlockTime = new Date(userDoc.lockUntil).toLocaleString('en-IN');
         sendAccountLockedEmail(user.email, { name: user.name, unlockTime }).catch(() => {});
-
         auditLogRepository.create({
           targetUser: user._id,
           action: AUDIT_ACTION.ACCOUNT_LOCKED,
@@ -155,15 +121,11 @@ export const authService = {
       throw new AuthenticationError('Invalid credentials');
     }
 
-    // Reset failed attempts
     await userRepository.updateLastLogin(user._id, ipAddress);
 
-    // Issue tokens
     const tokens = issueTokenPair(user);
-    const refreshTokenHash = sha256Hash(tokens.refreshToken);
-    const expiresAt = addMinutes(new Date(), 7 * 24 * 60); // 7 days
+    const expiresAt = addMinutes(new Date(), 7 * 24 * 60);
 
-    // Persist session
     await sessionRepository.createSession({
       user: user._id,
       refreshToken: tokens.refreshToken,
@@ -175,7 +137,6 @@ export const authService = {
       deviceType: deviceInfo.deviceType || 'unknown',
     });
 
-    // Add device
     userRepository.addDevice(user._id, {
       deviceId: deviceInfo.deviceId || `auto-${Date.now()}`,
       deviceName: deviceInfo.deviceName || 'Unknown Device',
@@ -185,7 +146,6 @@ export const authService = {
       lastLoginAt: new Date(),
     }).catch(() => {});
 
-    // Audit
     auditLogRepository.create({
       performedBy: user._id,
       action: AUDIT_ACTION.LOGIN,
@@ -210,9 +170,6 @@ export const authService = {
     return { user: safeUser, ...tokens };
   },
 
-  /**
-   * Refresh access token using a valid refresh token.
-   */
   async refreshToken(rawRefreshToken) {
     let decoded;
     try {
@@ -224,23 +181,16 @@ export const authService = {
     const hash = sha256Hash(rawRefreshToken);
     const session = await sessionRepository.findByRefreshTokenHash(hash);
 
-    if (!session || !session.isActive) {
-      throw new AuthenticationError('Session not found or revoked');
-    }
-
-    if (new Date(session.expiresAt) < new Date()) {
-      throw new AuthenticationError('Refresh token has expired');
-    }
+    if (!session || !session.isActive) throw new AuthenticationError('Session not found or revoked');
+    if (new Date(session.expiresAt) < new Date()) throw new AuthenticationError('Refresh token has expired');
 
     const user = await userRepository.findById(decoded.userId);
     if (!user || !user.isActive || user.isBlocked) {
       throw new AuthenticationError('User account is unavailable');
     }
 
-    // Rotate refresh token — revoke old, issue new
     await sessionRepository.revokeSession(hash, 'token_rotation');
     const newTokens = issueTokenPair(user);
-    const newHash = sha256Hash(newTokens.refreshToken);
     const expiresAt = addMinutes(new Date(), 7 * 24 * 60);
 
     await sessionRepository.createSession({
@@ -256,9 +206,6 @@ export const authService = {
     return newTokens;
   },
 
-  /**
-   * Logout — revoke session.
-   */
   async logout(rawRefreshToken, userId) {
     if (rawRefreshToken) {
       const hash = sha256Hash(rawRefreshToken);
@@ -274,20 +221,13 @@ export const authService = {
     }).catch(() => {});
   },
 
-  /**
-   * Logout from all devices.
-   */
   async logoutAll(userId) {
     await sessionRepository.revokeAllUserSessions(userId, 'logout_all');
     authLogger.info('User logged out from all devices', { userId });
   },
 
-  /**
-   * Initiate forgot-password flow.
-   */
   async forgotPassword(email) {
     const user = await userRepository.findByEmail(email);
-    // Always return success (don't reveal if email exists)
     if (!user) return;
 
     const rawToken = generateOpaqueToken();
@@ -308,16 +248,12 @@ export const authService = {
     }).catch(() => {});
   },
 
-  /**
-   * Complete password reset.
-   */
   async resetPassword(token, newPassword) {
     const hashedToken = sha256Hash(token);
     const user = await userRepository.findByPasswordResetToken(hashedToken);
 
     if (!user) throw new BusinessError('Invalid or expired password reset token');
 
-    // Update password
     const userDoc = await userRepository.model.findById(user._id);
     userDoc.password = newPassword;
     await userDoc.save();
@@ -334,9 +270,6 @@ export const authService = {
     }).catch(() => {});
   },
 
-  /**
-   * Change password (authenticated).
-   */
   async changePassword(userId, currentPassword, newPassword) {
     const userDoc = await userRepository.model.findById(userId).select('+password');
     if (!userDoc) throw new NotFoundError('User not found');
@@ -358,9 +291,6 @@ export const authService = {
     }).catch(() => {});
   },
 
-  /**
-   * Update user profile.
-   */
   async updateProfile(userId, updateData) {
     const allowed = ['name', 'businessName', 'gstNumber', 'panNumber', 'address', 'avatar'];
     const sanitized = {};
@@ -372,16 +302,10 @@ export const authService = {
     return user;
   },
 
-  /**
-   * Get active sessions for a user.
-   */
   async getSessions(userId) {
     return sessionRepository.findActiveSessions(userId);
   },
 
-  /**
-   * Get login history.
-   */
   async getLoginHistory(userId) {
     return sessionRepository.getLoginHistory(userId, 20);
   },

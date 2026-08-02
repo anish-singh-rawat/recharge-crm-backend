@@ -2,12 +2,6 @@ import { mroboticsRequest } from './client.js';
 import { mapperService } from './mapper.service.js';
 import env from '../../../config/env.js';
 
-/**
- * MRobotics Circle Service
- *
- * PLACEHOLDER endpoint: GET /api/circle/list
- * Update endpoint and field names once official docs are received.
- */
 export const mroboticsCircleService = {
   async getCircles() {
     const params = {
@@ -17,7 +11,7 @@ export const mroboticsCircleService = {
 
     const raw = await mroboticsRequest({
       method: 'GET',
-      endpoint: '/api/circle/list',     // PLACEHOLDER endpoint
+      endpoint: '/api/circle/list',
       data: params,
       retryable: true,
     });

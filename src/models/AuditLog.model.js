@@ -78,7 +78,6 @@ auditLogSchema.index({ performedBy: 1, createdAt: -1 });
 auditLogSchema.index({ targetUser: 1, createdAt: -1 });
 auditLogSchema.index({ action: 1, severity: 1, createdAt: -1 });
 auditLogSchema.index({ module: 1, createdAt: -1 });
-// TTL: keep audit logs for 1 year
 auditLogSchema.index(
   { createdAt: 1 },
   { expireAfterSeconds: 365 * 24 * 60 * 60 },

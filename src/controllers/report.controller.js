@@ -66,7 +66,6 @@ export const reportController = {
     sendSuccess(res, { message: 'Commission report retrieved', data: { report: data } });
   }),
 
-  // Retailer-scoped reports
   getMyRechargeReport: asyncHandler(async (req, res) => {
     const { items, total } = await reportService.getRechargeReport({
       ...req.query,

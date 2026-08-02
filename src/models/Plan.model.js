@@ -36,13 +36,13 @@ const planSchema = new mongoose.Schema(
       default: 0,
     },
     dataAmount: {
-      type: String, // e.g. "1.5GB/day", "24GB"
+      type: String,
       default: '',
     },
     planType: {
       type: String,
       trim: true,
-      default: 'TOPUP', // TOPUP, COMBO, DATA, SMS, etc.
+      default: 'TOPUP',
     },
     isActive: {
       type: Boolean,
@@ -58,7 +58,7 @@ const planSchema = new mongoose.Schema(
     },
     expiresAt: {
       type: Date,
-      default: null, // null = never expires
+      default: null,
     },
   },
   {

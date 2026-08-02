@@ -34,7 +34,7 @@ const roleSchema = new mongoose.Schema(
     },
     isSystem: {
       type: Boolean,
-      default: false, // system roles cannot be deleted
+      default: false,
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,

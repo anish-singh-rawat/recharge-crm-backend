@@ -14,14 +14,9 @@ class WalletRepository extends BaseRepository {
   }
 
   async findByUserIdWithLock(userId, session) {
-    // findOneAndUpdate is atomic in MongoDB — acts as a select-for-update
     return Wallet.findOne({ user: userId }).session(session);
   }
 
-  /**
-   * Atomically credit a wallet using findOneAndUpdate with version check.
-   * Prevents race conditions without explicit locking.
-   */
   async creditBalance(walletId, amount, session = null) {
     const query = Wallet.findOneAndUpdate(
       { _id: walletId },
@@ -35,14 +30,11 @@ class WalletRepository extends BaseRepository {
     return query.lean();
   }
 
-  /**
-   * Atomically debit a wallet — checks balance atomically to prevent overdraft.
-   */
   async debitBalance(walletId, amount, session = null) {
     const query = Wallet.findOneAndUpdate(
       {
         _id: walletId,
-        balance: { $gte: amount }, // atomic balance check
+        balance: { $gte: amount },
         status: 'ACTIVE',
       },
       {

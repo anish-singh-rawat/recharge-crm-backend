@@ -12,6 +12,8 @@ import swaggerSpec from './config/swagger.js';
 import { requestIdMiddleware, requestResponseLogger } from './middlewares/requestLogger.middleware.js';
 import { generalRateLimiter } from './middlewares/rateLimiter.middleware.js';
 import { notFoundHandler, globalErrorHandler } from './middlewares/errorHandler.middleware.js';
+import { xssMiddleware } from './middlewares/xss.middleware.js';
+import { maintenanceMiddleware } from './middlewares/maintenance.middleware.js';
 import apiRoutes from './routes/index.js';
 import webhookRouter from './handlers/webhook.handler.js';
 
@@ -56,7 +58,9 @@ app.use('/api/v1/webhooks', express.json({ limit: '1mb' }), webhookRouter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+app.use(xssMiddleware);
 app.use(generalRateLimiter);
+app.use(maintenanceMiddleware);
 
 if (env.swagger.enabled) {
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {

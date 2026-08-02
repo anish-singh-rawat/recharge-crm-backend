@@ -6,7 +6,7 @@ const deviceSchema = new mongoose.Schema(
   {
     deviceId: { type: String, required: true },
     deviceName: { type: String, default: 'Unknown Device' },
-    deviceType: { type: String, default: 'unknown' }, // mobile, desktop, tablet
+    deviceType: { type: String, default: 'unknown' },
     platform: { type: String, default: '' },
     ipAddress: { type: String, default: '' },
     userAgent: { type: String, default: '' },
@@ -18,7 +18,6 @@ const deviceSchema = new mongoose.Schema(
 
 const userSchema = new mongoose.Schema(
   {
-    // ── Identity ──────────────────────────────────────────────
     name: {
       type: String,
       required: [true, 'Name is required'],
@@ -48,7 +47,6 @@ const userSchema = new mongoose.Schema(
       select: false,
     },
 
-    // ── Role / Permissions ────────────────────────────────────
     role: {
       type: String,
       enum: {
@@ -64,10 +62,9 @@ const userSchema = new mongoose.Schema(
     },
     permissions: {
       type: [String],
-      default: [], // extra permissions beyond role defaults
+      default: [],
     },
 
-    // ── Profile ───────────────────────────────────────────────
     avatar: {
       type: String,
       default: null,
@@ -102,7 +99,6 @@ const userSchema = new mongoose.Schema(
       select: false,
     },
 
-    // ── Account State ─────────────────────────────────────────
     isActive: {
       type: Boolean,
       default: true,
@@ -133,7 +129,6 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
 
-    // ── Login & Security ──────────────────────────────────────
     loginAttempts: {
       type: Number,
       default: 0,
@@ -155,7 +150,6 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
 
-    // ── Password Reset ────────────────────────────────────────
     passwordResetToken: {
       type: String,
       default: null,
@@ -167,7 +161,6 @@ const userSchema = new mongoose.Schema(
       select: false,
     },
 
-    // ── Email Verification ────────────────────────────────────
     emailVerificationToken: {
       type: String,
       default: null,
@@ -179,20 +172,17 @@ const userSchema = new mongoose.Schema(
       select: false,
     },
 
-    // ── Refresh Tokens ────────────────────────────────────────
     refreshTokens: {
       type: [String],
       default: [],
       select: false,
     },
 
-    // ── Devices ───────────────────────────────────────────────
     devices: {
       type: [deviceSchema],
       default: [],
     },
 
-    // ── Relations ─────────────────────────────────────────────
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -201,17 +191,15 @@ const userSchema = new mongoose.Schema(
     parentId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      default: null, // Admin who created this retailer
+      default: null,
     },
 
-    // ── Wallet reference ──────────────────────────────────────
     wallet: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Wallet',
       default: null,
     },
 
-    // ── Commission ────────────────────────────────────────────
     commissionRate: {
       type: Number,
       default: 0,
@@ -225,7 +213,6 @@ const userSchema = new mongoose.Schema(
   },
 );
 
-// ── Indexes ───────────────────────────────────────────────────────────────────
 userSchema.index({ email: 1 }, { unique: true });
 userSchema.index({ phone: 1 }, { unique: true });
 userSchema.index({ role: 1 });
@@ -233,12 +220,10 @@ userSchema.index({ isActive: 1, isBlocked: 1 });
 userSchema.index({ createdBy: 1 });
 userSchema.index({ parentId: 1 });
 
-// ── Virtual: account is locked ────────────────────────────────────────────────
 userSchema.virtual('isLocked').get(function () {
   return !!(this.lockUntil && this.lockUntil > Date.now());
 });
 
-// ── Pre-save: hash password ───────────────────────────────────────────────────
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
   const rounds = parseInt(process.env.BCRYPT_ROUNDS, 10) || 12;
@@ -247,18 +232,15 @@ userSchema.pre('save', async function (next) {
   next();
 });
 
-// ── Method: compare password ──────────────────────────────────────────────────
 userSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-// ── Method: increment login attempts ─────────────────────────────────────────
 userSchema.methods.incrementLoginAttempts = async function () {
   const maxAttempts = parseInt(process.env.MAX_LOGIN_ATTEMPTS, 10) || 5;
   const lockMinutes = parseInt(process.env.ACCOUNT_LOCK_DURATION_MINUTES, 10) || 30;
 
   if (this.lockUntil && this.lockUntil < Date.now()) {
-    // Lock expired — reset
     this.loginAttempts = 1;
     this.lockUntil = null;
   } else {
@@ -270,14 +252,12 @@ userSchema.methods.incrementLoginAttempts = async function () {
   return this.save();
 };
 
-// ── Method: reset login attempts ─────────────────────────────────────────────
 userSchema.methods.resetLoginAttempts = async function () {
   this.loginAttempts = 0;
   this.lockUntil = null;
   return this.save();
 };
 
-// ── Method: password changed after token issued ───────────────────────────────
 userSchema.methods.changedPasswordAfter = function (jwtIssuedAt) {
   if (this.passwordChangedAt) {
     const changedTs = parseInt(this.passwordChangedAt.getTime() / 1000, 10);
@@ -286,7 +266,6 @@ userSchema.methods.changedPasswordAfter = function (jwtIssuedAt) {
   return false;
 };
 
-// ── Transform: remove sensitive fields in toJSON ──────────────────────────────
 userSchema.set('toJSON', {
   virtuals: true,
   transform(doc, ret) {

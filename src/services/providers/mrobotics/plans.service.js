@@ -3,12 +3,6 @@ import { signatureService } from './signature.service.js';
 import { mapperService } from './mapper.service.js';
 import env from '../../../config/env.js';
 
-/**
- * MRobotics Plans Service
- *
- * PLACEHOLDER endpoint: GET /api/plans/fetch
- * Update endpoint and field names once official docs are received.
- */
 export const mroboticsPlansService = {
   async getPlans({ operatorCode, circleCode }) {
     const timestamp = Date.now().toString();
@@ -21,7 +15,7 @@ export const mroboticsPlansService = {
 
     const raw = await mroboticsRequest({
       method: 'GET',
-      endpoint: '/api/plans/fetch',     // PLACEHOLDER endpoint
+      endpoint: '/api/plans/fetch',
       data: params,
       retryable: true,
     });

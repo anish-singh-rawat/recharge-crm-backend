@@ -23,7 +23,6 @@ export const authController = {
     };
     const result = await authService.login(identifier, password, deviceInfo, req.ip);
 
-    // Set refresh token as HttpOnly cookie
     res.cookie('refreshToken', result.refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

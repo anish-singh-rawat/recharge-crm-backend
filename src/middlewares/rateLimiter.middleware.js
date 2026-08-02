@@ -10,9 +10,6 @@ const rateLimitResponse = (req, res) => {
   });
 };
 
-/**
- * General API rate limiter — applies to all routes.
- */
 export const generalRateLimiter = rateLimit({
   windowMs: env.rateLimit.windowMs,
   max: env.rateLimit.max,
@@ -23,11 +20,8 @@ export const generalRateLimiter = rateLimit({
   keyGenerator: (req) => req.ip,
 });
 
-/**
- * Strict auth rate limiter — login, forgot-password, etc.
- */
 export const authRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: env.rateLimit.authMax,
   standardHeaders: true,
   legacyHeaders: false,
@@ -41,11 +35,8 @@ export const authRateLimiter = rateLimit({
   keyGenerator: (req) => req.ip,
 });
 
-/**
- * Recharge API rate limiter — per user per minute.
- */
 export const rechargeRateLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
+  windowMs: 60 * 1000,
   max: env.rateLimit.rechargeMax,
   standardHeaders: true,
   legacyHeaders: false,
@@ -59,11 +50,8 @@ export const rechargeRateLimiter = rateLimit({
   keyGenerator: (req) => (req.user ? req.user.id : req.ip),
 });
 
-/**
- * Password-reset rate limiter — very strict.
- */
 export const passwordResetRateLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
+  windowMs: 60 * 60 * 1000,
   max: 3,
   standardHeaders: true,
   legacyHeaders: false,

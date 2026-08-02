@@ -8,6 +8,7 @@ import {
   freezeWalletValidator,
   unfreezeWalletValidator,
   walletStatementValidator,
+  myWalletStatementValidator,
   walletLedgerValidator,
 } from '../validators/wallet.validator.js';
 import { mongoIdParam } from '../validators/common.validator.js';
@@ -16,49 +17,20 @@ import { ROLES } from '../constants/roles.js';
 
 const router = Router();
 
-/**
- * @swagger
- * tags:
- *   name: Wallet
- *   description: Wallet management & transactions
- */
 
 router.use(authenticate);
 
-// ── Retailer routes ────────────────────────────────────────────────────────────
 
-/**
- * @swagger
- * /wallet/me:
- *   get:
- *     summary: Get my wallet balance
- *     tags: [Wallet]
- */
 router.get('/me', authorizePermissions(PERMISSIONS.WALLET_READ), walletController.getMyWallet);
 
-/**
- * @swagger
- * /wallet/me/statement:
- *   get:
- *     summary: Get my wallet statement
- *     tags: [Wallet]
- */
 router.get(
   '/me/statement',
   authorizePermissions(PERMISSIONS.WALLET_STATEMENT),
-  walletStatementValidator,
+  myWalletStatementValidator,
   walletController.getMyStatement,
 );
 
-// ── Admin routes ───────────────────────────────────────────────────────────────
 
-/**
- * @swagger
- * /wallet/ledger:
- *   get:
- *     summary: Full wallet ledger (Admin)
- *     tags: [Wallet]
- */
 router.get(
   '/ledger',
   authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN),
@@ -67,13 +39,6 @@ router.get(
   walletController.getLedger,
 );
 
-/**
- * @swagger
- * /wallet/{userId}:
- *   get:
- *     summary: Get wallet by user ID (Admin)
- *     tags: [Wallet]
- */
 router.get(
   '/:userId',
   [mongoIdParam('userId')],
@@ -82,13 +47,6 @@ router.get(
   walletController.getWalletByUserId,
 );
 
-/**
- * @swagger
- * /wallet/{userId}/statement:
- *   get:
- *     summary: Get wallet statement by user ID (Admin)
- *     tags: [Wallet]
- */
 router.get(
   '/:userId/statement',
   authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN),
@@ -96,13 +54,6 @@ router.get(
   walletController.getStatementByUserId,
 );
 
-/**
- * @swagger
- * /wallet/{userId}/credit:
- *   post:
- *     summary: Credit wallet (Admin)
- *     tags: [Wallet]
- */
 router.post(
   '/:userId/credit',
   authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN),
@@ -111,13 +62,6 @@ router.post(
   walletController.creditWallet,
 );
 
-/**
- * @swagger
- * /wallet/{userId}/debit:
- *   post:
- *     summary: Debit wallet (Admin)
- *     tags: [Wallet]
- */
 router.post(
   '/:userId/debit',
   authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN),
@@ -126,13 +70,6 @@ router.post(
   walletController.debitWallet,
 );
 
-/**
- * @swagger
- * /wallet/{userId}/freeze:
- *   patch:
- *     summary: Freeze wallet (Admin)
- *     tags: [Wallet]
- */
 router.patch(
   '/:userId/freeze',
   authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN),
@@ -141,13 +78,6 @@ router.patch(
   walletController.freezeWallet,
 );
 
-/**
- * @swagger
- * /wallet/{userId}/unfreeze:
- *   patch:
- *     summary: Unfreeze wallet (Admin)
- *     tags: [Wallet]
- */
 router.patch(
   '/:userId/unfreeze',
   authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN),

@@ -47,7 +47,7 @@ const apiLogSchema = new mongoose.Schema(
       select: false,
     },
     responseTime: {
-      type: Number, // milliseconds
+      type: Number,
       default: 0,
     },
     ipAddress: {
@@ -68,7 +68,7 @@ const apiLogSchema = new mongoose.Schema(
     },
     provider: {
       type: String,
-      default: null, // 'MROBOTICS' for provider API calls
+      default: null,
     },
     providerEndpoint: {
       type: String,
@@ -85,7 +85,6 @@ apiLogSchema.index({ requestId: 1 });
 apiLogSchema.index({ user: 1, createdAt: -1 });
 apiLogSchema.index({ isError: 1, createdAt: -1 });
 apiLogSchema.index({ provider: 1, createdAt: -1 });
-// TTL: auto-delete after 30 days
 apiLogSchema.index(
   { createdAt: 1 },
   { expireAfterSeconds: 30 * 24 * 60 * 60 },

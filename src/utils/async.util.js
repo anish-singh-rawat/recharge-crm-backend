@@ -1,22 +1,8 @@
-/**
- * Wraps an async Express route handler to catch errors and forward to next().
- * Eliminates try/catch boilerplate in every controller.
- */
 export const asyncHandler = (fn) => (req, res, next) =>
   Promise.resolve(fn(req, res, next)).catch(next);
 
-/**
- * Sleep for a given number of milliseconds.
- */
 export const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/**
- * Execute a promise with a timeout.
- * @param {Promise} promise
- * @param {number} timeoutMs
- * @param {string} errorMessage
- * @returns {Promise}
- */
 export const withTimeout = (promise, timeoutMs, errorMessage = 'Operation timed out') => {
   const timeout = new Promise((_, reject) =>
     setTimeout(() => reject(new Error(errorMessage)), timeoutMs),
@@ -24,17 +10,6 @@ export const withTimeout = (promise, timeoutMs, errorMessage = 'Operation timed 
   return Promise.race([promise, timeout]);
 };
 
-/**
- * Retry a function with exponential backoff.
- * @param {Function} fn  Async function to retry
- * @param {object} options
- * @param {number} options.maxAttempts
- * @param {number} options.initialDelayMs
- * @param {number} options.backoffMultiplier
- * @param {number} options.maxDelayMs
- * @param {Function} options.onRetry  Called on each retry with (error, attempt)
- * @returns {Promise}
- */
 export const retryWithBackoff = async (fn, options = {}) => {
   const {
     maxAttempts = 3,

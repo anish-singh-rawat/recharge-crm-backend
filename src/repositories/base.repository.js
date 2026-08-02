@@ -1,7 +1,3 @@
-/**
- * Base repository — provides generic CRUD helpers.
- * All domain repositories extend this class.
- */
 export class BaseRepository {
   constructor(model) {
     this.model = model;

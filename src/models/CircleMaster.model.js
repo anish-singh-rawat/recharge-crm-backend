@@ -17,7 +17,7 @@ const circleSchema = new mongoose.Schema(
     providerCode: {
       type: String,
       trim: true,
-      default: '', // code used by MRobotics
+      default: '',
     },
     displayName: {
       type: String,

@@ -8,12 +8,6 @@ import { ROLES } from '../constants/roles.js';
 
 const router = Router();
 
-/**
- * @swagger
- * tags:
- *   name: Settings
- *   description: System settings
- */
 
 router.get('/public', settingController.getPublicSettings);
 

@@ -19,7 +19,7 @@ const operatorSchema = new mongoose.Schema(
     providerCode: {
       type: String,
       trim: true,
-      default: '', // code used by MRobotics for this operator
+      default: '',
     },
     type: {
       type: String,
@@ -51,7 +51,7 @@ const operatorSchema = new mongoose.Schema(
     },
     commission: {
       type: Number,
-      default: 0, // percentage e.g. 2 = 2%
+      default: 0,
       min: 0,
       max: 100,
     },

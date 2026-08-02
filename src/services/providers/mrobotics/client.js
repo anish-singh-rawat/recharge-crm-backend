@@ -10,7 +10,6 @@ import {
   MRoboticsTimeoutError,
 } from './errors.js';
 
-// ── Axios instance for MRobotics ─────────────────────────────────────────────
 const axiosInstance = axios.create({
   baseURL: env.mrobotics.baseUrl,
   timeout: env.mrobotics.timeoutMs,
@@ -21,7 +20,6 @@ const axiosInstance = axios.create({
   },
 });
 
-// ── Request interceptor: inject API key + request ID ────────────────────────
 axiosInstance.interceptors.request.use((config) => {
   config.headers['X-Request-ID'] = uuidv4();
   config.headers['X-API-Key'] = env.mrobotics.apiKey || '';
@@ -29,7 +27,6 @@ axiosInstance.interceptors.request.use((config) => {
   return config;
 });
 
-// ── Response interceptor: log + normalise ────────────────────────────────────
 axiosInstance.interceptors.response.use(
   (response) => {
     const duration = Date.now() - (response.config.metadata?.startTime || Date.now());
@@ -52,7 +49,6 @@ axiosInstance.interceptors.response.use(
       duration,
     });
 
-    // Classify errors
     if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
       throw new MRoboticsTimeoutError();
     }
@@ -64,17 +60,6 @@ axiosInstance.interceptors.response.use(
   },
 );
 
-/**
- * Make a request to MRobotics API with retry + logging.
- *
- * @param {object} options
- * @param {string} options.method
- * @param {string} options.endpoint
- * @param {object} [options.data]
- * @param {object} [options.params]
- * @param {string} [options.correlationId]
- * @param {boolean} [options.retryable]
- */
 export const mroboticsRequest = async ({
   method = 'POST',
   endpoint,
@@ -125,7 +110,6 @@ export const mroboticsRequest = async ({
     errorMessage = err.message;
     throw err;
   } finally {
-    // Persist API log (fire and forget)
     ApiLog.create({
       requestId,
       correlationId,

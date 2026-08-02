@@ -26,7 +26,6 @@ export const apiKeyService = {
       expiresAt,
     });
 
-    // Return the raw key ONCE — it can never be retrieved again
     return { ...apiKey, rawKey };
   },
 
@@ -38,7 +37,6 @@ export const apiKeyService = {
     const key = await apiKeyRepository.findById(keyId);
     if (!key) throw new NotFoundError('API key not found');
 
-    // Only the owner or admin can revoke
     if (role !== 'super_admin' && role !== 'admin' && key.user.toString() !== userId) {
       throw new AuthorizationError('Cannot revoke another user\'s API key');
     }

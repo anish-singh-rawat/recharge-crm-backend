@@ -120,7 +120,7 @@ class UserRepository extends BaseRepository {
         $push: {
           devices: {
             $each: [deviceData],
-            $slice: -10, // keep last 10 devices
+            $slice: -10,
           },
         },
       },

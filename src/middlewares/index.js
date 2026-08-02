@@ -11,3 +11,5 @@ export { requestIdMiddleware, requestResponseLogger } from './requestLogger.midd
 export { notFoundHandler, globalErrorHandler } from './errorHandler.middleware.js';
 export { uploadAvatar, uploadMiddleware } from './upload.middleware.js';
 export { logActivity } from './activityLog.middleware.js';
+export { xssMiddleware } from './xss.middleware.js';
+export { maintenanceMiddleware } from './maintenance.middleware.js';

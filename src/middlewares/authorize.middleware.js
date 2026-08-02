@@ -2,10 +2,6 @@ import { ROLE_HIERARCHY } from '../constants/roles.js';
 import { ROLE_PERMISSIONS } from '../constants/permissions.js';
 import { AuthorizationError, AuthenticationError } from '../helpers/error.helper.js';
 
-/**
- * Authorize by role — user must have one of the specified roles.
- * @param {...string} roles  Allowed role names
- */
 export const authorizeRoles = (...roles) => (req, res, next) => {
   if (!req.user) throw new AuthenticationError('Authentication required');
   if (!roles.includes(req.user.role)) {
@@ -16,10 +12,6 @@ export const authorizeRoles = (...roles) => (req, res, next) => {
   next();
 };
 
-/**
- * Authorize by minimum role hierarchy level.
- * @param {string} minRole  Minimum required role
- */
 export const authorizeMinRole = (minRole) => (req, res, next) => {
   if (!req.user) throw new AuthenticationError('Authentication required');
   const userLevel = ROLE_HIERARCHY[req.user.role] || 0;
@@ -30,11 +22,6 @@ export const authorizeMinRole = (minRole) => (req, res, next) => {
   next();
 };
 
-/**
- * Authorize by specific permission strings.
- * Checks both role-level defaults AND user-level extra permissions.
- * @param {...string} requiredPermissions
- */
 export const authorizePermissions = (...requiredPermissions) => (req, res, next) => {
   if (!req.user) throw new AuthenticationError('Authentication required');
 
@@ -51,13 +38,6 @@ export const authorizePermissions = (...requiredPermissions) => (req, res, next)
   next();
 };
 
-/**
- * Resource ownership check — ensure the acting user owns the resource
- * OR has an admin/super_admin role to override.
- * Attach result to req.isOwner.
- *
- * @param {Function} getResourceOwnerId  (req) => ownerId string
- */
 export const authorizeOwnerOrAdmin = (getResourceOwnerId) => async (req, res, next) => {
   if (!req.user) throw new AuthenticationError('Authentication required');
 

@@ -1,10 +1,5 @@
 import env from '../config/env.js';
 
-/**
- * Parse and normalise pagination query params.
- * @param {object} query  req.query
- * @returns {{ page, limit, skip }}
- */
 export const parsePagination = (query = {}) => {
   const page = Math.max(1, parseInt(query.page, 10) || 1);
   const rawLimit = parseInt(query.limit, 10) || env.pagination.defaultPageSize;
@@ -13,14 +8,6 @@ export const parsePagination = (query = {}) => {
   return { page, limit, skip };
 };
 
-/**
- * Parse sort query param.
- * e.g. "createdAt:desc,amount:asc"  →  { createdAt: -1, amount: 1 }
- * @param {string} sortStr
- * @param {object} allowedFields  Whitelist of sortable field names
- * @param {object} defaultSort
- * @returns {object}
- */
 export const parseSort = (sortStr, allowedFields = {}, defaultSort = { createdAt: -1 }) => {
   if (!sortStr) return defaultSort;
   const sort = {};
@@ -33,13 +20,6 @@ export const parseSort = (sortStr, allowedFields = {}, defaultSort = { createdAt
   return Object.keys(sort).length ? sort : defaultSort;
 };
 
-/**
- * Build a date-range filter object for MongoDB queries.
- * @param {string|Date} startDate
- * @param {string|Date} endDate
- * @param {string} field  Field to apply range on (default 'createdAt')
- * @returns {object}
- */
 export const buildDateRangeFilter = (startDate, endDate, field = 'createdAt') => {
   const filter = {};
   if (startDate || endDate) {

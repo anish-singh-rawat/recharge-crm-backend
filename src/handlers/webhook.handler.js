@@ -61,11 +61,6 @@ const processWebhookPayload = async (webhookLog, normalised) => {
   webhookLogger.info('Webhook processed', { txnId: txn.txnId, newStatus: internalStatus });
 };
 
-/**
- * POST /webhooks/mrobotics
- * Raw body required for signature verification — app must mount this before express.json()
- * or use express.json() with verify option.
- */
 router.post('/mrobotics', async (req, res) => {
   const payload = req.body;
   const ipAddress = req.ip || '';

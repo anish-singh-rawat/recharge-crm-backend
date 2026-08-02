@@ -18,33 +18,25 @@ import { rechargeLogger } from '../config/logger.js';
 import env from '../config/env.js';
 
 export const rechargeService = {
-  /**
-   * Full recharge flow as specified in requirements.
-   */
   async initiateRecharge({ mobileNumber, amount, operatorId, circleId, type }, user, requestMeta = {}) {
-    // 1. Validate operator
     const operator = await operatorRepository.findById(operatorId);
     if (!operator || !operator.isActive) throw new RechargeError('Invalid or inactive operator');
 
-    // 2. Validate circle (optional for DTH etc.)
     let circle = null;
     if (circleId) {
       circle = await circleRepository.findById(circleId);
       if (!circle || !circle.isActive) throw new RechargeError('Invalid or inactive circle');
     }
 
-    // 3. Validate amount
     if (amount < operator.minAmount) throw new RechargeError(`Minimum recharge amount for this operator is ₹${operator.minAmount}`);
     if (amount > operator.maxAmount) throw new RechargeError(`Maximum recharge amount for this operator is ₹${operator.maxAmount}`);
     if (amount < env.wallet.minRechargeAmount) throw new RechargeError(`Minimum recharge amount is ₹${env.wallet.minRechargeAmount}`);
     if (amount > env.wallet.maxRechargeAmount) throw new RechargeError(`Maximum recharge amount is ₹${env.wallet.maxRechargeAmount}`);
 
-    // 4. Wallet check
     const wallet = await walletRepository.findByUserId(user.id);
     if (!wallet) throw new WalletError('Wallet not found');
     assertWalletCanDebit(wallet, amount);
 
-    // 5. Create transaction in INITIATED state
     const txnId = generateTxnId();
     const correlationId = generateCorrelationId();
     const commissionRate = user.commissionRate || env.wallet.commissionRate;
@@ -72,7 +64,6 @@ export const rechargeService = {
 
     rechargeLogger.info('Recharge initiated', { txnId, userId: user.id, amount, mobileNumber });
 
-    // 6. Debit wallet (atomic)
     let walletTxn;
     try {
       const result = await walletService.debitForRecharge(wallet._id, amount, txnId, user._id);
@@ -84,13 +75,11 @@ export const rechargeService = {
       throw err;
     }
 
-    // Link wallet txn
     await rechargeTransactionRepository.updateOne(
       { txnId },
       { $set: { walletTxn: walletTxn._id, status: TRANSACTION_STATUS.PROCESSING } },
     );
 
-    // 7. Call provider
     let providerResult;
     try {
       providerResult = await mroboticsProvider.recharge({
@@ -105,7 +94,6 @@ export const rechargeService = {
     } catch (providerErr) {
       rechargeLogger.error('Provider call failed', { txnId, error: providerErr.message });
 
-      // Determine if retryable
       const isRetryable = providerErr.isRetryable !== false;
       const nextRetryAt = isRetryable ? calcNextRetryAt(0) : null;
 
@@ -121,10 +109,8 @@ export const rechargeService = {
         },
       );
 
-      // Refund wallet for provider failure
       await walletService.refundFromRecharge(wallet._id, amount, txnId, user._id);
 
-      // Re-link wallet txn to show refund
       notificationRepository.create({
         user: user._id,
         title: 'Recharge Failed',
@@ -137,7 +123,6 @@ export const rechargeService = {
       throw new RechargeError(providerErr.message || 'Recharge failed. Amount has been refunded.');
     }
 
-    // 8. Update transaction with provider response
     const finalStatus = providerResult.status;
     const updatedTxn = await rechargeTransactionRepository.updateStatus(txnId, finalStatus, {
       providerTxnId: providerResult.providerTxnId,
@@ -149,13 +134,12 @@ export const rechargeService = {
       providerResponse: providerResult.rawResponse,
     });
 
-    // 9. If failed after provider response, refund
     if (finalStatus === TRANSACTION_STATUS.FAILED) {
       await walletService.refundFromRecharge(wallet._id, amount, txnId, user._id);
     }
 
-    // 10. Audit log + notification
     const isSuccess = finalStatus === TRANSACTION_STATUS.SUCCESS;
+
     auditLogRepository.create({
       performedBy: user._id,
       action: isSuccess ? AUDIT_ACTION.RECHARGE_SUCCESS : AUDIT_ACTION.RECHARGE_FAILED,
@@ -180,20 +164,13 @@ export const rechargeService = {
     return updatedTxn;
   },
 
-  /**
-   * Get transaction status (check provider if still pending).
-   */
   async getStatus(txnId, userId = null) {
-    const filter = { txnId };
-    if (userId) filter.user = userId;
-
     const txn = await rechargeTransactionRepository.findByTxnIdFull(txnId);
     if (!txn) throw new NotFoundError('Transaction not found');
     if (userId && txn.user.toString() !== userId.toString()) {
       throw new NotFoundError('Transaction not found');
     }
 
-    // If still pending, poll provider
     if ([TRANSACTION_STATUS.PENDING, TRANSACTION_STATUS.PROCESSING].includes(txn.status)) {
       try {
         const statusResult = await mroboticsProvider.checkStatus(txn.providerTxnId || txnId);
@@ -212,9 +189,6 @@ export const rechargeService = {
     return txn;
   },
 
-  /**
-   * List transactions for a user.
-   */
   async listByUser(userId, query) {
     const { filter, pagination, sort } = buildListQuery(query, {
       exactFields: ['status', 'type'],
@@ -225,9 +199,6 @@ export const rechargeService = {
     return rechargeTransactionRepository.findByUser(userId, filter, { ...pagination, sort });
   },
 
-  /**
-   * List all transactions (admin).
-   */
   async listAll(query) {
     const { filter, pagination, sort } = buildListQuery(query, {
       exactFields: ['status', 'type', 'user', 'operator'],
@@ -237,9 +208,6 @@ export const rechargeService = {
     return rechargeTransactionRepository.findPaginatedWithDetails(filter, { ...pagination, sort });
   },
 
-  /**
-   * Retry a failed transaction.
-   */
   async retry(txnId, performedBy) {
     const txn = await rechargeTransactionRepository.findByTxnId(txnId);
     if (!txn) throw new NotFoundError('Transaction not found');
@@ -251,7 +219,6 @@ export const rechargeService = {
     await rechargeTransactionRepository.markRetry(txnId, nextRetryAt);
     await rechargeTransactionRepository.updateStatus(txnId, TRANSACTION_STATUS.PROCESSING);
 
-    // Debit wallet again (it was refunded on failure)
     const wallet = await walletRepository.findByUserId(txn.user.toString());
     assertWalletCanDebit(wallet, txn.amount);
     await walletService.debitForRecharge(wallet._id, txn.amount, txnId, txn.user);
@@ -260,7 +227,7 @@ export const rechargeService = {
       const providerResult = await mroboticsProvider.recharge({
         mobileNumber: txn.mobileNumber,
         amount: txn.amount,
-        operatorCode: operator.providerCode || operator.code,
+        operatorCode: operator?.providerCode || operator?.code || '',
         txnId,
         correlationId: txn.correlationId,
         type: txn.type,
@@ -304,9 +271,6 @@ export const rechargeService = {
     }
   },
 
-  /**
-   * Refund a transaction.
-   */
   async refund(txnId, reason, performedBy) {
     const txn = await rechargeTransactionRepository.findByTxnId(txnId);
     if (!txn) throw new NotFoundError('Transaction not found');

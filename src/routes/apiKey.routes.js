@@ -7,12 +7,6 @@ import { PERMISSIONS } from '../constants/permissions.js';
 
 const router = Router();
 
-/**
- * @swagger
- * tags:
- *   name: API Keys
- *   description: API key management
- */
 
 router.use(authenticate);
 

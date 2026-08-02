@@ -24,7 +24,6 @@ emitter.on(RECHARGE_EVENTS.SUCCESS, ({ userId, transaction }) => {
   try {
     getIO().to(`user:${userId}`).emit('recharge:success', { transaction });
   } catch {
-    // socket not ready
   }
 });
 
@@ -32,7 +31,6 @@ emitter.on(RECHARGE_EVENTS.FAILED, ({ userId, transaction }) => {
   try {
     getIO().to(`user:${userId}`).emit('recharge:failed', { transaction });
   } catch {
-    // socket not ready
   }
 });
 

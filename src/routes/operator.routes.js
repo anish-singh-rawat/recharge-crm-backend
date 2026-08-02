@@ -20,16 +20,9 @@ import { ROLES } from '../constants/roles.js';
 
 const router = Router();
 
-/**
- * @swagger
- * tags:
- *   name: Operators
- *   description: Operator, circle and plan management
- */
 
 router.use(authenticate);
 
-// ── Operators ─────────────────────────────────────────────────────────────────
 
 router.get('/active', authorizePermissions(PERMISSIONS.OPERATOR_LIST), operatorController.listActiveOperators);
 
@@ -43,7 +36,6 @@ router.put('/:id', authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN), authorizePerm
 
 router.delete('/:id', [mongoIdParam('id')], authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN), authorizePermissions(PERMISSIONS.OPERATOR_DELETE), operatorController.deleteOperator);
 
-// ── Circles ────────────────────────────────────────────────────────────────────
 
 router.get('/circles/all', authorizePermissions(PERMISSIONS.CIRCLE_LIST), operatorController.listCircles);
 
@@ -53,7 +45,6 @@ router.get('/circles/:id', [mongoIdParam('id')], authorizePermissions(PERMISSION
 
 router.put('/circles/:id', authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN), authorizePermissions(PERMISSIONS.CIRCLE_UPDATE), updateCircleValidator, operatorController.updateCircle);
 
-// ── Plans ──────────────────────────────────────────────────────────────────────
 
 router.get('/plans/by-operator', authorizePermissions(PERMISSIONS.PLAN_LIST), operatorController.getPlansByOperatorCircle);
 

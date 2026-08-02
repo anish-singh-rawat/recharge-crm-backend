@@ -111,7 +111,7 @@ class RechargeTransactionRepository extends BaseRepository {
   async findPending() {
     return RechargeTransaction.find({
       status: { $in: [TRANSACTION_STATUS.PENDING, TRANSACTION_STATUS.PROCESSING] },
-      initiatedAt: { $lt: new Date(Date.now() - 5 * 60 * 1000) }, // older than 5 minutes
+      initiatedAt: { $lt: new Date(Date.now() - 5 * 60 * 1000) },
     })
       .limit(100)
       .lean();
@@ -134,7 +134,6 @@ class RechargeTransactionRepository extends BaseRepository {
     ).lean();
   }
 
-  // ── Aggregations for reports ──────────────────────────────────────────────
 
   async getSalesSummary(filter = {}) {
     return RechargeTransaction.aggregate([
