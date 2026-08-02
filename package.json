@@ -10,7 +10,13 @@
   },
   "scripts": {
     "start": "node src/server.js",
+    "start:prod": "NODE_ENV=production node src/server.js",
+    "pm2:start": "pm2 start ecosystem.config.js --env production",
+    "pm2:stop": "pm2 stop recharge-crm-backend",
+    "pm2:restart": "pm2 restart recharge-crm-backend",
+    "pm2:logs": "pm2 logs recharge-crm-backend",
     "dev": "nodemon src/server.js",
+    "seed": "node src/jobs/seed.js",
     "lint": "eslint src/**/*.js",
     "lint:fix": "eslint src/**/*.js --fix"
   },
