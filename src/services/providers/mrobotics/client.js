@@ -1,4 +1,5 @@
 import axios from 'axios';
+import https from 'https';
 import { v4 as uuidv4 } from 'uuid';
 import env from '../../../config/env.js';
 import { providerLogger } from '../../../config/logger.js';
@@ -18,6 +19,7 @@ const axiosInstance = axios.create({
     Accept: 'application/json',
     'X-Member-ID': env.mrobotics.memberId || '',
   },
+  httpsAgent: new https.Agent({ rejectUnauthorized: false }),
 });
 
 axiosInstance.interceptors.request.use((config) => {
@@ -81,6 +83,7 @@ export const mroboticsRequest = async ({
         'X-Correlation-ID': correlationId || requestId,
       },
     });
+
     return response.data;
   };
 
