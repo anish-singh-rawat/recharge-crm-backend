@@ -1,0 +1,801 @@
+openapi: 3.0.3
+info:
+  title: Recharge CRM API
+  version: "1.0.0"
+  description: |
+    Production-ready Recharge Reseller CRM — Wallet, BBPS, Mobile Recharge, DTH, Utility.
+
+    ## Authentication
+    - **JWT Bearer**: Use `POST /auth/login` to get an access token. Pass as `Authorization: Bearer <token>`.
+    - **API Key**: Pass `X-API-Key: <key>` header.
+
+    ## Rate Limits
+    - General: 100 req / 15 min per IP
+    - Auth endpoints: 10 req / 15 min per IP
+    - Recharge: 30 req / min per user
+    - Password reset: 3 req / hr per IP
+  contact:
+    name: RechargeCRM Support
+    email: support@rechargecrmapp.com
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Development
+  - url: https://api.rechargecrmapp.com/api/v1
+    description: Production
+
+tags:
+  - name: Health
+    description: System health & version
+  - name: Auth
+    description: Authentication & session management
+  - name: Users
+    description: User management
+  - name: Wallet
+    description: Wallet operations
+  - name: Recharge
+    description: Mobile / DTH / Utility recharge
+  - name: Operators
+    description: Operator, circle & plan management
+  - name: Notifications
+    description: Notification management
+  - name: Reports
+    description: Business intelligence
+  - name: API Keys
+    description: API key management
+  - name: Settings
+    description: System settings
+  - name: Provider
+    description: MRobotics provider management
+  - name: Logs
+    description: Activity, audit & webhook logs
+  - name: Webhooks
+    description: Incoming webhooks from providers
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  schemas:
+    SuccessResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        message: { type: string }
+        data: { type: object }
+
+    ErrorResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: false }
+        message: { type: string }
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field: { type: string }
+              message: { type: string }
+
+    PaginationMeta:
+      type: object
+      properties:
+        page: { type: integer, example: 1 }
+        limit: { type: integer, example: 20 }
+        total: { type: integer, example: 100 }
+        totalPages: { type: integer, example: 5 }
+        hasNext: { type: boolean }
+        hasPrev: { type: boolean }
+
+    LoginRequest:
+      type: object
+      required: [identifier, password]
+      properties:
+        identifier:
+          type: string
+          description: Email or phone number
+          example: "9876543210"
+        password:
+          type: string
+          example: "Secret@123"
+        deviceId: { type: string }
+        deviceName: { type: string }
+        deviceType:
+          type: string
+          enum: [mobile, desktop, tablet, unknown]
+
+    LoginResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/UserProfile'
+        accessToken: { type: string }
+        refreshToken: { type: string }
+
+    RegisterRequest:
+      type: object
+      required: [name, email, phone, password, confirmPassword, role]
+      properties:
+        name: { type: string, example: "Rahul Sharma" }
+        email: { type: string, example: "rahul@example.com" }
+        phone: { type: string, example: "9876543210" }
+        password: { type: string, example: "Secret@123" }
+        confirmPassword: { type: string, example: "Secret@123" }
+        role:
+          type: string
+          enum: [retailer, admin]
+          example: retailer
+        businessName: { type: string, example: "Sharma Telecom" }
+        commissionRate: { type: number, example: 0.02 }
+
+    UserProfile:
+      type: object
+      properties:
+        _id: { type: string }
+        name: { type: string }
+        email: { type: string }
+        phone: { type: string }
+        role:
+          type: string
+          enum: [super_admin, admin, retailer]
+        businessName: { type: string }
+        isActive: { type: boolean }
+        isBlocked: { type: boolean }
+        commissionRate: { type: number }
+        wallet: { type: string, description: Wallet ObjectId }
+        createdAt: { type: string, format: date-time }
+
+    WalletObject:
+      type: object
+      properties:
+        _id: { type: string }
+        user: { type: string }
+        balance: { type: number, example: 5000.00 }
+        pendingAmount: { type: number, example: 0 }
+        totalCredited: { type: number }
+        totalDebited: { type: number }
+        totalCommission: { type: number }
+        status:
+          type: string
+          enum: [ACTIVE, FROZEN, SUSPENDED, CLOSED]
+        walletLimit: { type: number }
+        currency: { type: string, example: INR }
+        lastTransactionAt: { type: string, format: date-time }
+
+    WalletTransaction:
+      type: object
+      properties:
+        _id: { type: string }
+        txnId: { type: string }
+        type:
+          type: string
+          enum: [CREDIT, DEBIT, REFUND, REVERSAL, COMMISSION, SETTLEMENT, ADJUSTMENT]
+        amount: { type: number }
+        balanceBefore: { type: number }
+        balanceAfter: { type: number }
+        description: { type: string }
+        referenceId: { type: string }
+        referenceType: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    RechargeRequest:
+      type: object
+      required: [mobileNumber, amount, operatorId, type]
+      properties:
+        mobileNumber: { type: string, example: "9876543210" }
+        amount: { type: number, example: 199 }
+        operatorId: { type: string, example: "64abc123..." }
+        circleId: { type: string, example: "64abc456..." }
+        type:
+          type: string
+          enum: [MOBILE_PREPAID, MOBILE_POSTPAID, DTH, BROADBAND, LANDLINE, ELECTRICITY, GAS, WATER, FASTAG, INSURANCE, LPG, CABLE_TV]
+          example: MOBILE_PREPAID
+
+    RechargeTransaction:
+      type: object
+      properties:
+        _id: { type: string }
+        txnId: { type: string, example: "TXNKX3A9B2F1C" }
+        mobileNumber: { type: string }
+        amount: { type: number }
+        type: { type: string }
+        status:
+          type: string
+          enum: [INITIATED, PENDING, PROCESSING, SUCCESS, FAILED, REFUNDED, REVERSED, TIMEOUT]
+        statusMessage: { type: string }
+        providerTxnId: { type: string }
+        operatorRef: { type: string }
+        commission: { type: number }
+        commissionRate: { type: number }
+        netAmount: { type: number }
+        retryCount: { type: integer }
+        isSettled: { type: boolean }
+        initiatedAt: { type: string, format: date-time }
+        completedAt: { type: string, format: date-time }
+        operator:
+          type: object
+          properties:
+            name: { type: string }
+            code: { type: string }
+            type: { type: string }
+        circle:
+          type: object
+          properties:
+            name: { type: string }
+            code: { type: string }
+
+    OperatorObject:
+      type: object
+      properties:
+        _id: { type: string }
+        name: { type: string, example: "Airtel" }
+        code: { type: string, example: "AIRTEL" }
+        type: { type: string, example: "MOBILE_PREPAID" }
+        providerCode: { type: string }
+        isActive: { type: boolean }
+        minAmount: { type: number }
+        maxAmount: { type: number }
+        commission: { type: number }
+
+    CircleObject:
+      type: object
+      properties:
+        _id: { type: string }
+        name: { type: string, example: "Maharashtra" }
+        code: { type: string, example: "MH" }
+        providerCode: { type: string }
+        isActive: { type: boolean }
+
+    PlanObject:
+      type: object
+      properties:
+        _id: { type: string }
+        amount: { type: number, example: 199 }
+        talktime: { type: number }
+        validity: { type: string, example: "28 days" }
+        description: { type: string }
+        dataAmount: { type: string, example: "1.5GB/day" }
+        planType: { type: string }
+        isPopular: { type: boolean }
+
+    NotificationObject:
+      type: object
+      properties:
+        _id: { type: string }
+        title: { type: string }
+        message: { type: string }
+        type:
+          type: string
+          enum: [INFO, SUCCESS, WARNING, ERROR, ALERT]
+        isRead: { type: boolean }
+        readAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+
+    ApiKeyCreated:
+      type: object
+      properties:
+        _id: { type: string }
+        name: { type: string }
+        keyPrefix: { type: string, example: "a1b2c3d4" }
+        rawKey:
+          type: string
+          description: Shown only once at creation. Store securely.
+          example: "crm_a1b2c3d4e5f6..."
+        permissions: { type: array, items: { type: string } }
+        allowedIps: { type: array, items: { type: string } }
+        isActive: { type: boolean }
+        expiresAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+
+    SettingObject:
+      type: object
+      properties:
+        key: { type: string }
+        value: {}
+        group: { type: string }
+        displayName: { type: string }
+        isPublic: { type: boolean }
+        isEditable: { type: boolean }
+
+  parameters:
+    PageParam:
+      in: query
+      name: page
+      schema: { type: integer, default: 1, minimum: 1 }
+    LimitParam:
+      in: query
+      name: limit
+      schema: { type: integer, default: 20, minimum: 1, maximum: 100 }
+    StartDateParam:
+      in: query
+      name: startDate
+      schema: { type: string, format: date }
+    EndDateParam:
+      in: query
+      name: endDate
+      schema: { type: string, format: date }
+    IdParam:
+      in: path
+      name: id
+      required: true
+      schema: { type: string }
+    UserIdParam:
+      in: path
+      name: userId
+      required: true
+      schema: { type: string }
+    TxnIdParam:
+      in: path
+      name: txnId
+      required: true
+      schema: { type: string }
+
+security:
+  - BearerAuth: []
+
+paths:
+  /ping:
+    get:
+      tags: [Health]
+      summary: Ping the server
+      security: []
+      responses:
+        "200":
+          description: pong
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /health:
+    get:
+      tags: [Health]
+      summary: Full health check with database status
+      security: []
+      responses:
+        "200":
+          description: Service healthy
+        "503":
+          description: Service degraded
+
+  /version:
+    get:
+      tags: [Health]
+      summary: API version info
+      security: []
+      responses:
+        "200":
+          description: Version info
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login with email or phone + password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/LoginResponse'
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Too many attempts
+
+  /auth/refresh-token:
+    post:
+      tags: [Auth]
+      summary: Refresh access token using refresh token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        "200":
+          description: Token refreshed
+        "401":
+          description: Invalid or expired refresh token
+
+  /auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Request password reset email
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        "200":
+          description: Reset email sent (always returns 200 regardless of email existence)
+
+  /auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Reset password using token from email
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password, confirmPassword]
+              properties:
+                token: { type: string }
+                password: { type: string }
+                confirmPassword: { type: string }
+      responses:
+        "200":
+          description: Password reset successfully
+        "400":
+          description: Invalid or expired token
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout from current session
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken: { type: string }
+      responses:
+        "200":
+          description: Logged out
+
+  /auth/logout-all:
+    post:
+      tags: [Auth]
+      summary: Logout from all devices
+      responses:
+        "200":
+          description: Logged out from all devices
+
+  /auth/profile:
+    get:
+      tags: [Auth]
+      summary: Get current user profile
+      responses:
+        "200":
+          description: Profile retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          user:
+                            $ref: '#/components/schemas/UserProfile'
+    put:
+      tags: [Auth]
+      summary: Update current user profile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                businessName: { type: string }
+                gstNumber: { type: string }
+                panNumber: { type: string }
+                address:
+                  type: object
+                  properties:
+                    street: { type: string }
+                    city: { type: string }
+                    state: { type: string }
+                    pincode: { type: string }
+      responses:
+        "200":
+          description: Profile updated
+
+  /auth/change-password:
+    post:
+      tags: [Auth]
+      summary: Change password (must be authenticated)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword, confirmNewPassword]
+              properties:
+                currentPassword: { type: string }
+                newPassword: { type: string }
+                confirmNewPassword: { type: string }
+      responses:
+        "200":
+          description: Password changed
+
+  /auth/sessions:
+    get:
+      tags: [Auth]
+      summary: Get active sessions
+      responses:
+        "200":
+          description: Sessions list
+
+  /auth/login-history:
+    get:
+      tags: [Auth]
+      summary: Get login history (last 20)
+      responses:
+        "200":
+          description: Login history
+
+  /users:
+    get:
+      tags: [Users]
+      summary: List all users (Admin)
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - in: query
+          name: role
+          schema: { type: string, enum: [super_admin, admin, retailer] }
+        - in: query
+          name: search
+          schema: { type: string }
+        - in: query
+          name: isActive
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Users list
+    post:
+      tags: [Users]
+      summary: Create a new user / retailer (Admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        "201":
+          description: User created
+        "409":
+          description: Email or phone already exists
+
+  /users/{id}:
+    get:
+      tags: [Users]
+      summary: Get user by ID
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        "200":
+          description: User retrieved
+        "404":
+          description: User not found
+    put:
+      tags: [Users]
+      summary: Update user (Admin)
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                businessName: { type: string }
+                commissionRate: { type: number }
+                isActive: { type: boolean }
+                permissions: { type: array, items: { type: string } }
+      responses:
+        "200":
+          description: User updated
+    delete:
+      tags: [Users]
+      summary: Soft-delete user (Super Admin only)
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        "200":
+          description: User deleted
+
+  /users/{id}/block:
+    patch:
+      tags: [Users]
+      summary: Block a user (Admin)
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string }
+      responses:
+        "200":
+          description: User blocked
+
+  /users/{id}/unblock:
+    patch:
+      tags: [Users]
+      summary: Unblock a user (Admin)
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        "200":
+          description: User unblocked
+
+  /wallet/me:
+    get:
+      tags: [Wallet]
+      summary: Get my wallet balance
+      responses:
+        "200":
+          description: Wallet data
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          wallet:
+                            $ref: '#/components/schemas/WalletObject'
+
+  /wallet/me/statement:
+    get:
+      tags: [Wallet]
+      summary: Get my wallet statement
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/StartDateParam'
+        - $ref: '#/components/parameters/EndDateParam'
+        - in: query
+          name: type
+          schema: { type: string, enum: [CREDIT, DEBIT, REFUND, REVERSAL, COMMISSION, SETTLEMENT] }
+      responses:
+        "200":
+          description: Wallet statement
+
+  /wallet/ledger:
+    get:
+      tags: [Wallet]
+      summary: Full wallet ledger across all users (Admin)
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/StartDateParam'
+        - $ref: '#/components/parameters/EndDateParam'
+      responses:
+        "200":
+          description: Ledger data
+
+  /wallet/{userId}:
+    get:
+      tags: [Wallet]
+      summary: Get wallet by user ID (Admin)
+      parameters:
+        - $ref: '#/components/parameters/UserIdParam'
+      responses:
+        "200":
+          description: Wallet data
+
+  /wallet/{userId}/credit:
+    post:
+      tags: [Wallet]
+      summary: Credit a user's wallet (Admin)
+      parameters:
+        - $ref: '#/components/parameters/UserIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount, description]
+              properties:
+                amount: { type: number, example: 1000 }
+                description: { type: string }
+                remarks: { type: string }
+      responses:
+        "200":
+          description: Wallet credited
+
+  /wallet/{userId}/debit:
+    post:
+      tags: [Wallet]
+      summary: Debit a user's wallet (Admin)
+      parameters:
+        - $ref: '#/components/parameters/UserIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount, description]
+              properties:
+                amount: { type: number }
+                description: { type: string }
+      responses:
+        "200":
+          description: Wallet debited
+
+  /wallet/{userId}/freeze:
+    patch:
+      tags: [Wallet]
+      summary: Freeze a user's wallet (Admin)
+      parameters:
+        - $ref: '#/components/parameters/UserIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string }
+      responses:
+        "200":
+          description: Wallet frozen
+
+  /wallet/{userId}/unfreeze:
+    patch:
+      tags: [Wallet]
+      summary: Unfreeze a user's wallet (Admin)
+      parameters:
+        - $ref: '#/components/parameters/UserIdParam'
+      responses:
+        "200":
+          description: Wallet unfrozen
