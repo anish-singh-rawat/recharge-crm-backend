@@ -6,6 +6,8 @@ import cookieParser from 'cookie-parser';
 import hpp from 'hpp';
 import mongoSanitize from 'express-mongo-sanitize';
 import swaggerUi from 'swagger-ui-express';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 import env from './config/env.js';
 import swaggerSpec from './config/swagger.js';
@@ -16,6 +18,8 @@ import { xssMiddleware } from './middlewares/xss.middleware.js';
 import { maintenanceMiddleware } from './middlewares/maintenance.middleware.js';
 import apiRoutes from './routes/index.js';
 import webhookRouter from './handlers/webhook.handler.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 
@@ -72,6 +76,8 @@ if (env.swagger.enabled) {
 }
 
 app.use('/api/v1', apiRoutes);
+
+app.use('/uploads', express.static(path.resolve(__dirname, '..', env.upload.dir)));
 
 app.use(notFoundHandler);
 app.use(globalErrorHandler);

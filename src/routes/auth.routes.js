@@ -36,7 +36,7 @@ router.post('/logout-all', authController.logoutAll);
 
 router.get('/profile', authController.getProfile);
 router.put('/profile', updateProfileValidator, authController.updateProfile);
-router.patch('/profile/avatar', uploadMiddleware(uploadAvatar), authController.updateProfile);
+router.patch('/profile/avatar', uploadMiddleware(uploadAvatar), authController.updateAvatar);
 
 router.post('/change-password', changePasswordValidator, authController.changePassword);
 

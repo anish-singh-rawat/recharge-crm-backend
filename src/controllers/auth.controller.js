@@ -100,6 +100,15 @@ export const authController = {
     sendSuccess(res, { message: 'Profile updated successfully', data: { user } });
   }),
 
+  updateAvatar: asyncHandler(async (req, res) => {
+    if (!req.file) {
+      const { BusinessError } = await import('../helpers/error.helper.js');
+      throw new BusinessError('No file uploaded');
+    }
+    const user = await authService.updateProfile(req.user.id, { avatar: req.file.filename });
+    sendSuccess(res, { message: 'Avatar updated successfully', data: { user } });
+  }),
+
   getSessions: asyncHandler(async (req, res) => {
     const sessions = await authService.getSessions(req.user.id);
     sendSuccess(res, { message: 'Active sessions retrieved', data: { sessions } });

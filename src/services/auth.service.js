@@ -10,6 +10,7 @@ import { generateOpaqueToken } from '../utils/id.util.js';
 import { addMinutes } from '../utils/date.util.js';
 import { sendPasswordResetEmail, sendWelcomeEmail, sendAccountLockedEmail } from '../utils/mailer.util.js';
 import { AuthenticationError, NotFoundError, ConflictError, BusinessError } from '../helpers/error.helper.js';
+import { formatUser } from '../helpers/user.helper.js';
 import { AUDIT_ACTION, AUDIT_SEVERITY } from '../constants/audit.js';
 import { ROLES } from '../constants/roles.js';
 import { authLogger } from '../config/logger.js';
@@ -299,7 +300,7 @@ export const authService = {
     }
     const user = await userRepository.updateById(userId, { $set: sanitized });
     if (!user) throw new NotFoundError('User not found');
-    return user;
+    return formatUser(user);
   },
 
   async getSessions(userId) {

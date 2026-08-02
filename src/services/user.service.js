@@ -2,13 +2,14 @@ import { userRepository } from '../repositories/user.repository.js';
 import { auditLogRepository } from '../repositories/log.repository.js';
 import { buildListQuery } from '../helpers/query.helper.js';
 import { NotFoundError, ConflictError } from '../helpers/error.helper.js';
+import { formatUser } from '../helpers/user.helper.js';
 import { AUDIT_ACTION, AUDIT_SEVERITY } from '../constants/audit.js';
 
 export const userService = {
   async getUser(userId) {
     const user = await userRepository.findById(userId, null, {});
     if (!user) throw new NotFoundError('User not found');
-    return user;
+    return formatUser(user);
   },
 
   async listUsers(query) {
