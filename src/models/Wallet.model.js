@@ -73,7 +73,6 @@ const walletSchema = new mongoose.Schema(
   },
 );
 
-walletSchema.index({ user: 1 }, { unique: true });
 walletSchema.index({ status: 1 });
 
 walletSchema.methods.canTransact = function () {

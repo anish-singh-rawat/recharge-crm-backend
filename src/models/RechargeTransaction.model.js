@@ -194,7 +194,6 @@ const rechargeTransactionSchema = new mongoose.Schema(
   },
 );
 
-rechargeTransactionSchema.index({ txnId: 1 }, { unique: true });
 rechargeTransactionSchema.index({ user: 1, createdAt: -1 });
 rechargeTransactionSchema.index({ mobileNumber: 1, createdAt: -1 });
 rechargeTransactionSchema.index({ status: 1, createdAt: -1 });

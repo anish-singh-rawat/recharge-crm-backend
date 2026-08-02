@@ -54,7 +54,6 @@ const settingSchema = new mongoose.Schema(
   },
 );
 
-settingSchema.index({ key: 1 }, { unique: true });
 settingSchema.index({ group: 1 });
 
 const Setting = mongoose.model('Setting', settingSchema);

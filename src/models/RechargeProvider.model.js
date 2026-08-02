@@ -91,7 +91,6 @@ const rechargeProviderSchema = new mongoose.Schema(
   },
 );
 
-rechargeProviderSchema.index({ code: 1 }, { unique: true });
 rechargeProviderSchema.index({ status: 1, priority: 1 });
 
 const RechargeProvider = mongoose.model('RechargeProvider', rechargeProviderSchema);

@@ -77,7 +77,6 @@ const apiKeySchema = new mongoose.Schema(
 );
 
 apiKeySchema.index({ user: 1, isActive: 1 });
-apiKeySchema.index({ keyHash: 1 }, { unique: true });
 apiKeySchema.index({ keyPrefix: 1 });
 apiKeySchema.index({ expiresAt: 1 }, { sparse: true });
 

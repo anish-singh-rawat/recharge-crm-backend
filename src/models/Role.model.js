@@ -48,7 +48,7 @@ const roleSchema = new mongoose.Schema(
   },
 );
 
-roleSchema.index({ name: 1 }, { unique: true });
+roleSchema.index({ isActive: 1 });
 
 const Role = mongoose.model('Role', roleSchema);
 export default Role;

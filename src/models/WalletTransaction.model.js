@@ -60,7 +60,7 @@ const walletTransactionSchema = new mongoose.Schema(
     referenceType: {
       type: String,
       trim: true,
-      default: null, 
+      default: null,
     },
     performedBy: {
       type: mongoose.Schema.Types.ObjectId,
@@ -82,7 +82,6 @@ const walletTransactionSchema = new mongoose.Schema(
   },
 );
 
-walletTransactionSchema.index({ txnId: 1 }, { unique: true });
 walletTransactionSchema.index({ wallet: 1, createdAt: -1 });
 walletTransactionSchema.index({ user: 1, createdAt: -1 });
 walletTransactionSchema.index({ referenceId: 1 });

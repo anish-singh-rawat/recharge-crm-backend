@@ -42,7 +42,6 @@ const permissionSchema = new mongoose.Schema(
   },
 );
 
-permissionSchema.index({ name: 1 }, { unique: true });
 permissionSchema.index({ resource: 1, action: 1 });
 
 const Permission = mongoose.model('Permission', permissionSchema);

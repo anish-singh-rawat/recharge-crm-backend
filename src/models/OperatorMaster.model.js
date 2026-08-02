@@ -75,7 +75,6 @@ const operatorSchema = new mongoose.Schema(
   },
 );
 
-operatorSchema.index({ code: 1 }, { unique: true });
 operatorSchema.index({ type: 1, isActive: 1 });
 operatorSchema.index({ isActive: 1, sortOrder: 1 });
 

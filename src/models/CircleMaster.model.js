@@ -39,7 +39,6 @@ const circleSchema = new mongoose.Schema(
   },
 );
 
-circleSchema.index({ code: 1 }, { unique: true });
 circleSchema.index({ isActive: 1 });
 
 const CircleMaster = mongoose.model('CircleMaster', circleSchema);
