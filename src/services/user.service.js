@@ -1,0 +1,104 @@
+import { userRepository } from '../repositories/user.repository.js';
+import { auditLogRepository } from '../repositories/log.repository.js';
+import { buildListQuery } from '../helpers/query.helper.js';
+import { NotFoundError, ConflictError } from '../helpers/error.helper.js';
+import { AUDIT_ACTION, AUDIT_SEVERITY } from '../constants/audit.js';
+
+export const userService = {
+  async getUser(userId) {
+    const user = await userRepository.findById(userId, null, {});
+    if (!user) throw new NotFoundError('User not found');
+    return user;
+  },
+
+  async listUsers(query) {
+    const { filter, pagination, sort } = buildListQuery(query, {
+      exactFields: ['role', 'isActive', 'isBlocked'],
+      searchFields: ['name', 'email', 'phone', 'businessName'],
+      dateField: 'createdAt',
+    });
+    return userRepository.findPaginatedUsers(filter, { ...pagination, sort });
+  },
+
+  async updateUser(targetId, updateData, performedBy) {
+    const user = await userRepository.findById(targetId);
+    if (!user) throw new NotFoundError('User not found');
+
+    const allowed = ['name', 'businessName', 'commissionRate', 'isActive', 'permissions', 'address', 'gstNumber', 'panNumber'];
+    const sanitized = {};
+    for (const key of allowed) {
+      if (updateData[key] !== undefined) sanitized[key] = updateData[key];
+    }
+
+    const updated = await userRepository.updateById(targetId, { $set: sanitized });
+
+    auditLogRepository.create({
+      performedBy,
+      targetUser: targetId,
+      action: AUDIT_ACTION.USER_UPDATED,
+      severity: AUDIT_SEVERITY.LOW,
+      module: 'user',
+      description: `User ${user.email} updated`,
+      previousValue: user,
+      newValue: updated,
+    }).catch(() => {});
+
+    return updated;
+  },
+
+  async blockUser(targetId, reason, performedBy) {
+    const user = await userRepository.findById(targetId);
+    if (!user) throw new NotFoundError('User not found');
+    if (user.isBlocked) throw new ConflictError('User is already blocked');
+
+    const updated = await userRepository.blockUser(targetId, reason, performedBy);
+
+    auditLogRepository.create({
+      performedBy,
+      targetUser: targetId,
+      action: AUDIT_ACTION.USER_BLOCKED,
+      severity: AUDIT_SEVERITY.HIGH,
+      module: 'user',
+      description: `User ${user.email} blocked: ${reason}`,
+    }).catch(() => {});
+
+    return updated;
+  },
+
+  async unblockUser(targetId, performedBy) {
+    const user = await userRepository.findById(targetId);
+    if (!user) throw new NotFoundError('User not found');
+    if (!user.isBlocked) throw new ConflictError('User is not blocked');
+
+    const updated = await userRepository.unblockUser(targetId);
+
+    auditLogRepository.create({
+      performedBy,
+      targetUser: targetId,
+      action: AUDIT_ACTION.USER_UNBLOCKED,
+      severity: AUDIT_SEVERITY.MEDIUM,
+      module: 'user',
+      description: `User ${user.email} unblocked`,
+    }).catch(() => {});
+
+    return updated;
+  },
+
+  async deleteUser(targetId, performedBy) {
+    const user = await userRepository.findById(targetId);
+    if (!user) throw new NotFoundError('User not found');
+
+    await userRepository.updateById(targetId, {
+      $set: { isActive: false, email: `deleted_${Date.now()}_${user.email}` },
+    });
+
+    auditLogRepository.create({
+      performedBy,
+      targetUser: targetId,
+      action: AUDIT_ACTION.USER_DELETED,
+      severity: AUDIT_SEVERITY.CRITICAL,
+      module: 'user',
+      description: `User ${user.email} soft-deleted`,
+    }).catch(() => {});
+  },
+};
