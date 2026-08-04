@@ -9,6 +9,9 @@ const router = Router();
 
 
 router.use(authenticate);
+
+router.get('/detect-operator', authorizePermissions(PERMISSIONS.OPERATOR_LIST), providerController.detectOperator);
+
 router.use(authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN));
 
 router.get('/', authorizePermissions(PERMISSIONS.PROVIDER_READ), providerController.getProviders);
@@ -20,7 +23,5 @@ router.get('/operators', authorizePermissions(PERMISSIONS.PROVIDER_READ), provid
 router.get('/circles', authorizePermissions(PERMISSIONS.PROVIDER_READ), providerController.getProviderCircles);
 
 router.get('/plans', authorizePermissions(PERMISSIONS.PROVIDER_READ), providerController.getProviderPlans);
-
-router.get('/detect-operator', authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.RETAILER), providerController.detectOperator);
 
 export default router;
