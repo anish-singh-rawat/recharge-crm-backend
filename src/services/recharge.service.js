@@ -136,6 +136,10 @@ export const rechargeService = {
 
     if (finalStatus === TRANSACTION_STATUS.FAILED) {
       await walletService.refundFromRecharge(wallet._id, amount, txnId, user._id);
+      await rechargeTransactionRepository.updateOne(
+        { txnId },
+        { $set: { refundAmount: amount } },
+      );
     }
 
     const isSuccess = finalStatus === TRANSACTION_STATUS.SUCCESS;
@@ -173,7 +177,7 @@ export const rechargeService = {
 
     if ([TRANSACTION_STATUS.PENDING, TRANSACTION_STATUS.PROCESSING].includes(txn.status)) {
       try {
-        const statusResult = await mroboticsProvider.checkStatus(txn.providerTxnId || txnId);
+        const statusResult = await mroboticsProvider.checkStatus(txnId);
         if (statusResult.status !== txn.status) {
           await rechargeTransactionRepository.updateStatus(txnId, statusResult.status, {
             providerStatus: statusResult.providerStatus,

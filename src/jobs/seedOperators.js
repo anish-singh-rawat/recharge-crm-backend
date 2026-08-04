@@ -31,19 +31,19 @@ const circles = [
 ];
 
 const operators = [
-  { name: 'Airtel', code: 'AIRTEL', providerCode: 'AIRTEL', type: RECHARGE_TYPE.MOBILE_PREPAID, minAmount: 10, maxAmount: 5000, commission: 2, sortOrder: 1 },
-  { name: 'Airtel Postpaid', code: 'AIRTEL_POST', providerCode: 'AIRTEL_POST', type: RECHARGE_TYPE.MOBILE_POSTPAID, minAmount: 100, maxAmount: 10000, commission: 1.5, sortOrder: 2 },
-  { name: 'Jio', code: 'JIO', providerCode: 'JIO', type: RECHARGE_TYPE.MOBILE_PREPAID, minAmount: 10, maxAmount: 5000, commission: 2, sortOrder: 3 },
-  { name: 'Jio Postpaid', code: 'JIO_POST', providerCode: 'JIO_POST', type: RECHARGE_TYPE.MOBILE_POSTPAID, minAmount: 100, maxAmount: 10000, commission: 1.5, sortOrder: 4 },
-  { name: 'Vi (Vodafone Idea)', code: 'VI', providerCode: 'VI', type: RECHARGE_TYPE.MOBILE_PREPAID, minAmount: 10, maxAmount: 5000, commission: 2, sortOrder: 5 },
-  { name: 'Vi Postpaid', code: 'VI_POST', providerCode: 'VI_POST', type: RECHARGE_TYPE.MOBILE_POSTPAID, minAmount: 100, maxAmount: 10000, commission: 1.5, sortOrder: 6 },
-  { name: 'BSNL', code: 'BSNL', providerCode: 'BSNL', type: RECHARGE_TYPE.MOBILE_PREPAID, minAmount: 10, maxAmount: 5000, commission: 2, sortOrder: 7 },
-  { name: 'BSNL Postpaid', code: 'BSNL_POST', providerCode: 'BSNL_POST', type: RECHARGE_TYPE.MOBILE_POSTPAID, minAmount: 100, maxAmount: 10000, commission: 1.5, sortOrder: 8 },
-  { name: 'Tata Sky DTH', code: 'TATASKY', providerCode: 'TATASKY', type: RECHARGE_TYPE.DTH, minAmount: 10, maxAmount: 10000, commission: 1.5, sortOrder: 9 },
-  { name: 'Dish TV', code: 'DISHTV', providerCode: 'DISHTV', type: RECHARGE_TYPE.DTH, minAmount: 10, maxAmount: 10000, commission: 1.5, sortOrder: 10 },
-  { name: 'Sun Direct', code: 'SUNDIRECT', providerCode: 'SUNDIRECT', type: RECHARGE_TYPE.DTH, minAmount: 10, maxAmount: 10000, commission: 1.5, sortOrder: 11 },
-  { name: 'Videocon D2H', code: 'D2H', providerCode: 'D2H', type: RECHARGE_TYPE.DTH, minAmount: 10, maxAmount: 10000, commission: 1.5, sortOrder: 12 },
-  { name: 'Airtel DTH', code: 'AIRTEL_DTH', providerCode: 'AIRTEL_DTH', type: RECHARGE_TYPE.DTH, minAmount: 10, maxAmount: 10000, commission: 1.5, sortOrder: 13 },
+  { name: 'Airtel', code: 'AIRTEL', providerCode: '1', type: RECHARGE_TYPE.MOBILE_PREPAID, minAmount: 10, maxAmount: 5000, commission: 2, sortOrder: 1 },
+  { name: 'Airtel Postpaid', code: 'AIRTEL_POST', providerCode: '2', type: RECHARGE_TYPE.MOBILE_POSTPAID, minAmount: 100, maxAmount: 10000, commission: 1.5, sortOrder: 2 },
+  { name: 'Jio', code: 'JIO', providerCode: '3', type: RECHARGE_TYPE.MOBILE_PREPAID, minAmount: 10, maxAmount: 5000, commission: 2, sortOrder: 3 },
+  { name: 'Jio Postpaid', code: 'JIO_POST', providerCode: '4', type: RECHARGE_TYPE.MOBILE_POSTPAID, minAmount: 100, maxAmount: 10000, commission: 1.5, sortOrder: 4 },
+  { name: 'Vi (Vodafone Idea)', code: 'VI', providerCode: '5', type: RECHARGE_TYPE.MOBILE_PREPAID, minAmount: 10, maxAmount: 5000, commission: 2, sortOrder: 5 },
+  { name: 'Vi Postpaid', code: 'VI_POST', providerCode: '6', type: RECHARGE_TYPE.MOBILE_POSTPAID, minAmount: 100, maxAmount: 10000, commission: 1.5, sortOrder: 6 },
+  { name: 'BSNL', code: 'BSNL', providerCode: '7', type: RECHARGE_TYPE.MOBILE_PREPAID, minAmount: 10, maxAmount: 5000, commission: 2, sortOrder: 7 },
+  { name: 'BSNL Postpaid', code: 'BSNL_POST', providerCode: '8', type: RECHARGE_TYPE.MOBILE_POSTPAID, minAmount: 100, maxAmount: 10000, commission: 1.5, sortOrder: 8 },
+  { name: 'Tata Sky DTH', code: 'TATASKY', providerCode: '9', type: RECHARGE_TYPE.DTH, minAmount: 10, maxAmount: 10000, commission: 1.5, sortOrder: 9 },
+  { name: 'Dish TV', code: 'DISHTV', providerCode: '10', type: RECHARGE_TYPE.DTH, minAmount: 10, maxAmount: 10000, commission: 1.5, sortOrder: 10 },
+  { name: 'Sun Direct', code: 'SUNDIRECT', providerCode: '11', type: RECHARGE_TYPE.DTH, minAmount: 10, maxAmount: 10000, commission: 1.5, sortOrder: 11 },
+  { name: 'Videocon D2H', code: 'D2H', providerCode: '12', type: RECHARGE_TYPE.DTH, minAmount: 10, maxAmount: 10000, commission: 1.5, sortOrder: 12 },
+  { name: 'Airtel DTH', code: 'AIRTEL_DTH', providerCode: '13', type: RECHARGE_TYPE.DTH, minAmount: 10, maxAmount: 10000, commission: 1.5, sortOrder: 13 },
 ];
 
 const seedCircles = async () => {

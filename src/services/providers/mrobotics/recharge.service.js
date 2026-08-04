@@ -1,62 +1,30 @@
 import { mroboticsRequest } from './client.js';
-import { signatureService } from './signature.service.js';
 import { mapperService } from './mapper.service.js';
-import env from '../../../config/env.js';
 
 export const mroboticsRechargeService = {
   async doRecharge({ mobileNumber, amount, operatorCode, circleCode = '', txnId, correlationId, type }) {
-    const timestamp = Date.now().toString();
-    const signature = signatureService.generate({
-      mobileNumber,
-      amount: String(amount),
-      operatorCode,
-      txnId,
-      timestamp,
-    });
-
-
-    const payload = {
-      memberId: env.mrobotics.memberId,
-      mobileNo: mobileNumber,
-      amount: String(amount),
-      operatorCode,
-      circleCode,
-      type,
-      clientTxnId: txnId,
-      timestamp,
-      signature,
-    };
-
     const raw = await mroboticsRequest({
       method: 'POST',
-      endpoint: '/api/recharge/do',
-      data: payload,
+      endpoint: '/api/recharge',
+      data: {
+        mobile_no:  mobileNumber,
+        amount:     String(amount),
+        company_id: operatorCode,
+        order_id:   txnId,
+        is_stv:     'false',
+      },
       correlationId,
-      retryable: false,
     });
 
-    const result = mapperService.mapRechargeResponse(raw);
-    result.rawRequest = payload;
-    return result;
+    return mapperService.mapRechargeResponse(raw);
   },
 
-  async checkStatus(providerTxnId, clientTxnId = null) {
-    const timestamp = Date.now().toString();
-
-
-    const params = {
-      memberId: env.mrobotics.memberId,
-      txnId: providerTxnId ?? clientTxnId,
-      clientTxnId,
-      timestamp,
-    };
-
+  async checkStatus(txnId) {
     const raw = await mroboticsRequest({
       method: 'GET',
-      endpoint: '/api/recharge/status',
-      data: params,
-      correlationId: clientTxnId,
-      retryable: true,
+      endpoint: '/api/order_id_status',
+      data: { order_id: txnId },
+      correlationId: txnId,
     });
 
     return mapperService.mapStatusResponse(raw);

@@ -11,10 +11,11 @@ export const rechargeController = {
       requestId: req.requestId,
     };
     const txn = await rechargeService.initiateRecharge(req.body, req.user, requestMeta);
+    const isSuccess = txn.status === 'SUCCESS';
     sendSuccess(res, {
-      message: 'Recharge processed',
+      message: isSuccess ? 'Recharge successful' : `Recharge ${txn.status.toLowerCase()}: ${txn.providerMessage || txn.statusMessage}`,
       data: { transaction: txn },
-      statusCode: HTTP_STATUS.CREATED,
+      statusCode: isSuccess ? HTTP_STATUS.CREATED : HTTP_STATUS.OK,
     });
   }),
 

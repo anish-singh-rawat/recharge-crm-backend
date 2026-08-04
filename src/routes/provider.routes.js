@@ -21,6 +21,6 @@ router.get('/circles', authorizePermissions(PERMISSIONS.PROVIDER_READ), provider
 
 router.get('/plans', authorizePermissions(PERMISSIONS.PROVIDER_READ), providerController.getProviderPlans);
 
-router.get('/detect-operator', authorizePermissions(PERMISSIONS.PROVIDER_READ), providerController.detectOperator);
+router.get('/detect-operator', authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.RETAILER), providerController.detectOperator);
 
 export default router;

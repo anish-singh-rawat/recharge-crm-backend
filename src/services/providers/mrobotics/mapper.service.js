@@ -1,36 +1,41 @@
 import { TRANSACTION_STATUS } from '../../../constants/transaction.js';
-import { MROBOTICS_STATUS, MROBOTICS_STATUS_MAP } from '../../../constants/provider.js';
+
+const STATUS_MAP = {
+  success:  TRANSACTION_STATUS.SUCCESS,
+  failure:  TRANSACTION_STATUS.FAILED,
+  failed:   TRANSACTION_STATUS.FAILED,
+  pending:  TRANSACTION_STATUS.PENDING,
+  refunded: TRANSACTION_STATUS.REFUNDED,
+};
 
 export const mapperService = {
   mapRechargeResponse(raw) {
     if (!raw) {
       return {
-        status: TRANSACTION_STATUS.FAILED,
+        status:        TRANSACTION_STATUS.FAILED,
         providerStatus: null,
         providerTxnId: null,
-        operatorRef: null,
-        message: 'Empty response from provider',
-        responseCode: null,
-        rawResponse: raw,
-        rawRequest: null,
+        operatorRef:   null,
+        message:       'Empty response from provider',
+        responseCode:  null,
+        rawResponse:   raw,
       };
     }
 
-
-    const providerStatus = String(
-      raw.status ?? raw.Status ?? raw.statusCode ?? raw.RespCode ?? '',
-    );
-    const internalStatus = MROBOTICS_STATUS_MAP[providerStatus] || TRANSACTION_STATUS.PENDING;
+    const isErrorResponse = raw.error === true;
+    const providerStatus = isErrorResponse
+      ? 'failure'
+      : String(raw.status ?? '').toLowerCase();
+    const internalStatus = STATUS_MAP[providerStatus] ?? TRANSACTION_STATUS.PENDING;
 
     return {
-      status: internalStatus,
+      status:        internalStatus,
       providerStatus,
-      providerTxnId: raw.txnId ?? raw.TxnID ?? raw.transactionId ?? raw.refId ?? null,
-      operatorRef: raw.operatorRef ?? raw.OperatorRef ?? raw.operatorId ?? null,
-      message: raw.message ?? raw.Msg ?? raw.ResponseMsg ?? raw.description ?? '',
-      responseCode: raw.responseCode ?? raw.RespCode ?? raw.code ?? providerStatus,
-      rawResponse: raw,
-      rawRequest: null,
+      providerTxnId: raw.tnx_id ?? raw.id?.toString() ?? null,
+      operatorRef:   raw.lapu_id?.toString() ?? null,
+      message:       raw.response ?? raw.errorMessage ?? '',
+      balance:       raw.balance ?? null,
+      rawResponse:   raw,
     };
   },
 
@@ -39,34 +44,35 @@ export const mapperService = {
   },
 
   mapBalanceResponse(raw) {
+    const data = raw?.data ?? raw ?? {};
+    const total = Object.values(data).reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
     return {
-      balance: parseFloat(raw?.balance ?? raw?.Balance ?? raw?.amount ?? 0),
-      currency: raw?.currency ?? 'INR',
+      balance:  total,
+      currency: 'INR',
+      detail:   data,
       raw,
     };
   },
 
   mapOperatorList(raw) {
-    const list = raw?.operators ?? raw?.data ?? raw ?? [];
-    return Array.isArray(list)
-      ? list.map((op) => ({
-          providerCode: op.code ?? op.Code ?? op.operatorCode ?? '',
-          name: op.name ?? op.Name ?? op.operatorName ?? '',
-          type: op.type ?? op.Type ?? '',
-        }))
-      : [];
+    const data = raw?.data ?? {};
+    return Object.keys(data).map((name) => ({
+      providerCode: name,
+      name,
+      balance: parseFloat(data[name]) || 0,
+    }));
   },
 
   mapPlans(raw) {
     const list = raw?.plans ?? raw?.data ?? raw ?? [];
     return Array.isArray(list)
       ? list.map((p) => ({
-          amount: parseFloat(p.amount ?? p.Amount ?? p.rs ?? 0),
-          talktime: parseFloat(p.talktime ?? p.Talktime ?? 0),
-          validity: p.validity ?? p.Validity ?? '',
-          description: p.desc ?? p.description ?? p.Description ?? '',
-          dataAmount: p.data ?? p.Data ?? '',
-          smsCount: parseInt(p.sms ?? p.SMS ?? 0, 10),
+          amount:      parseFloat(p.amount ?? p.rs ?? 0),
+          talktime:    parseFloat(p.talktime ?? 0),
+          validity:    p.validity ?? '',
+          description: p.desc ?? p.description ?? '',
+          dataAmount:  p.data ?? '',
+          smsCount:    parseInt(p.sms ?? 0, 10),
         }))
       : [];
   },
@@ -75,36 +81,33 @@ export const mapperService = {
     const list = raw?.circles ?? raw?.data ?? raw ?? [];
     return Array.isArray(list)
       ? list.map((c) => ({
-          providerCode: c.code ?? c.Code ?? c.circleCode ?? '',
-          name: c.name ?? c.Name ?? c.circleName ?? '',
+          providerCode: c.code ?? c.circleCode ?? '',
+          name:         c.name ?? c.circleName ?? '',
         }))
       : [];
   },
 
   mapRefundResponse(raw) {
-    const providerStatus = String(raw?.status ?? raw?.Status ?? '');
+    const status = String(raw?.status ?? '').toLowerCase();
     return {
-      success: ['1', 'SUCCESS', 'success'].includes(providerStatus),
-      refundTxnId: raw?.txnId ?? raw?.refundId ?? null,
-      message: raw?.message ?? raw?.Msg ?? '',
+      success:      status === 'success',
+      refundTxnId:  raw?.tnx_id ?? null,
+      message:      raw?.response ?? raw?.errorMessage ?? '',
       raw,
     };
   },
 
   mapWebhookPayload(payload) {
-    const providerStatus = String(
-      payload.status ?? payload.Status ?? payload.statusCode ?? '',
-    );
-    const internalStatus = MROBOTICS_STATUS_MAP[providerStatus] || TRANSACTION_STATUS.PENDING;
-
+    const providerStatus = String(payload.status ?? '').toLowerCase();
+    const internalStatus = STATUS_MAP[providerStatus] ?? TRANSACTION_STATUS.PENDING;
     return {
       internalStatus,
       providerStatus,
-      providerTxnId: payload.txnId ?? payload.TxnID ?? payload.transactionId ?? null,
-      internalTxnId: payload.refId ?? payload.clientTxnId ?? payload.merchantTxnId ?? null,
-      operatorRef: payload.operatorRef ?? payload.OperatorRef ?? null,
-      message: payload.message ?? payload.Msg ?? '',
-      raw: payload,
+      providerTxnId: payload.tnx_id ?? payload.id?.toString() ?? null,
+      internalTxnId: payload.order_id ?? payload.clientTxnId ?? null,
+      operatorRef:   payload.lapu_id?.toString() ?? null,
+      message:       payload.response ?? payload.errorMessage ?? '',
+      raw:           payload,
     };
   },
 };
