@@ -86,7 +86,7 @@ export const rechargeService = {
         mobileNumber,
         amount,
         operatorCode: operator.providerCode || operator.code,
-        circleCode: circle?.providerCode || circle?.code || '',
+        circleCode: '',
         txnId,
         correlationId,
         type,
@@ -110,6 +110,11 @@ export const rechargeService = {
       );
 
       await walletService.refundFromRecharge(wallet._id, amount, txnId, user._id);
+
+      await rechargeTransactionRepository.updateOne(
+        { txnId },
+        { $set: { refundAmount: amount } },
+      );
 
       notificationRepository.create({
         user: user._id,
@@ -140,6 +145,7 @@ export const rechargeService = {
         { txnId },
         { $set: { refundAmount: amount } },
       );
+      updatedTxn.refundAmount = amount;
     }
 
     const isSuccess = finalStatus === TRANSACTION_STATUS.SUCCESS;
@@ -232,6 +238,7 @@ export const rechargeService = {
         mobileNumber: txn.mobileNumber,
         amount: txn.amount,
         operatorCode: operator?.providerCode || operator?.code || '',
+        circleCode: '',
         txnId,
         correlationId: txn.correlationId,
         type: txn.type,

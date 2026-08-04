@@ -1,70 +1,97 @@
-import '../config/env.js';
-import axios from 'axios';
-import https from 'https';
+import "../config/env.js";
+import axios from "axios";
+import https from "https";
 
 const API_TOKEN = process.env.MROBOTICS_API_KEY;
-const BASE_URL  = 'https://mrobotics.in';
+const BASE_URL = "https://mrobotics.in";
 
-const MOBILE = '9915884369';
-const AMOUNT = '20';
+const MOBILE = "9876867369";
+const AMOUNT = "20";
 
 const COMPANY_IDS = {
-  Vodafone:     '1',
-  Airtel:       '2',
-  Idea:         '3',
-  BSNL:         '4',
-  Jio:          '5',
-  DishTV:       '6',
-  TataSky:      '7',
-  VideoconD2H:  '11',
-  SunDirect:    '12',
-  JioPostpaid:  '17',
-  AirtelDTH:    '24',
-  DishTVEasy:   '27',
-  D2HPay:       '28',
+  Airtel: "2",
 };
 
-const httpsAgent = new https.Agent({ rejectUnauthorized: false });
-const http = axios.create({ baseURL: BASE_URL, httpsAgent, timeout: 30000 });
+const http = axios.create({
+  baseURL: BASE_URL,
+  timeout: 30000,
+  httpsAgent: new https.Agent({
+    rejectUnauthorized: false,
+  }),
+});
 
-const tryRecharge = async (companyId, label) => {
-  const orderId = `TEST-${Date.now()}-${companyId}`;
+async function tryRecharge(companyId, label) {
+  const payload = {
+    api_token: API_TOKEN,
+    mobile_no: MOBILE,
+    amount: AMOUNT,
+    company_id: companyId,
+    order_id: `TEST-${companyId}-${Date.now()}`,
+    is_stv: "0",
+  };
+
+  console.log("\n==============================================");
+  console.log(`${label} (company_id=${companyId})`);
+  console.log("==============================================");
+  console.log("REQUEST:");
+  console.log(JSON.stringify(payload, null, 2));
+
   try {
-    const res = await http.post('/api/recharge', {
-      api_token:  API_TOKEN,
-      mobile_no:  MOBILE,
-      amount:     AMOUNT,
-      company_id: String(companyId),
-      order_id:   orderId,
-      is_stv:     'false',
-    }, { headers: { 'Content-Type': 'application/json' } });
-    return res.data;
-  } catch (err) {
-    return err.response?.data ?? err.message;
-  }
-};
+    const { data, status } = await http.post("/api/recharge", payload, {
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      validateStatus: () => true,
+    });
 
-const run = async () => {
-  console.log(`\nMobile  : ${MOBILE}`);
-  console.log(`Amount  : ₹${AMOUNT}`);
-  console.log(`Token   : ${API_TOKEN}\n`);
-  console.log('─'.repeat(60));
+    console.log("\nHTTP STATUS:", status);
+    console.log("RESPONSE:");
+    console.log(JSON.stringify(data, null, 2));
+
+    return data;
+  } catch (err) {
+    console.log("\nAXIOS ERROR");
+
+    if (err.response) {
+      console.log("HTTP:", err.response.status);
+      console.log(JSON.stringify(err.response.data, null, 2));
+    } else {
+      console.log(err.message);
+    }
+
+    return null;
+  }
+}
+
+async function run() {
+  console.log("==============================================");
+  console.log("MROBOTICS RECHARGE TEST");
+  console.log("==============================================");
+
+  console.log("Mobile :", MOBILE);
+  console.log("Amount :", AMOUNT);
+  console.log("Token  :", API_TOKEN);
 
   for (const [label, companyId] of Object.entries(COMPANY_IDS)) {
-    const result = await tryRecharge(companyId, label);
-    const msg = result?.errorMessage ?? result?.response ?? result?.status ?? JSON.stringify(result);
-    const status = result?.status ?? 'error';
-    const marker = status === 'success' ? '✓' : status === 'pending' ? '~' : '✗';
-    console.log(`  [${marker}] ${label.padEnd(14)} company_id=${companyId.padEnd(3)}  ${msg}`);
+    const response = await tryRecharge(companyId, label);
 
-    if (status === 'success' || status === 'pending') {
-      console.log('\n── FULL RESPONSE ────────────────────────────');
-      console.log(JSON.stringify(result, null, 2));
+    if (!response) continue;
+
+    const status =
+      String(response.status || response.Status || "").toLowerCase();
+
+    if (
+      status === "success" ||
+      status === "pending" ||
+      status === "processing"
+    ) {
+      console.log("\n✅ Recharge accepted using", label);
       break;
     }
 
-    await new Promise(r => setTimeout(r, 300));
+    await new Promise((r) => setTimeout(r, 500));
   }
-};
+}
 
 run();

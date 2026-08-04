@@ -106,7 +106,7 @@ const detectByPrefix = (mobile) => {
 export const mroboticsOperatorService = {
   async getOperators() {
     const raw = await mroboticsRequest({
-      method: 'GET',
+      method: 'POST',
       endpoint: '/api/operator_balance',
       data: {},
     });

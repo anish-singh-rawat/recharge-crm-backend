@@ -34,6 +34,7 @@ export const mroboticsRequest = async ({ method = 'POST', endpoint, data = {}, c
     const response = await axiosInstance.request({
       method,
       url: endpoint,
+      validateStatus: () => true,
       ...(method === 'GET' ? { params: payload } : { data: payload }),
     });
 

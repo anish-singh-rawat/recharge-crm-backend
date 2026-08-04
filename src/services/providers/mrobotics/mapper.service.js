@@ -33,7 +33,7 @@ export const mapperService = {
       providerStatus,
       providerTxnId: raw.tnx_id ?? raw.id?.toString() ?? null,
       operatorRef:   raw.lapu_id?.toString() ?? null,
-      message:       raw.response ?? raw.errorMessage ?? '',
+      message:       typeof raw.response === 'string' ? (() => { try { const p = JSON.parse(raw.response); return p.responseMessage ?? raw.response; } catch { return raw.response; } })() : (raw.response ?? raw.errorMessage ?? ''),
       balance:       raw.balance ?? null,
       rawResponse:   raw,
     };
