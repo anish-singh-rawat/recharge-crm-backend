@@ -4,19 +4,17 @@ import { OperatorMaster } from '../models/index.js';
 import logger from '../config/logger.js';
 
 const providerCodeMap = {
-  AIRTEL:      '1',
-  AIRTEL_POST: '2',
-  JIO:         '3',
-  JIO_POST:    '4',
-  VI:          '5',
-  VI_POST:     '6',
-  BSNL:        '7',
-  BSNL_POST:   '8',
-  TATASKY:     '9',
-  DISHTV:      '10',
-  SUNDIRECT:   '11',
-  D2H:         '12',
-  AIRTEL_DTH:  '13',
+  VI:          '1',
+  AIRTEL:      '2',
+  IDEA:        '3',
+  BSNL:        '4',
+  JIO:         '5',
+  DISHTV:      '6',
+  TATASKY:     '7',
+  D2H:         '11',
+  SUNDIRECT:   '12',
+  JIO_POST:    '17',
+  AIRTEL_DTH:  '24',
 };
 
 const run = async () => {
