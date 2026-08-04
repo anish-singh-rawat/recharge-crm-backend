@@ -48,6 +48,10 @@ router.put('/circles/:id', authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN), autho
 
 router.get('/plans/by-operator', authorizePermissions(PERMISSIONS.PLAN_LIST), operatorController.getPlansByOperatorCircle);
 
+router.get('/plans/recommendations', authorizePermissions(PERMISSIONS.PLAN_LIST), operatorController.getPlanRecommendations);
+
+router.get('/plans/validate', authorizePermissions(PERMISSIONS.PLAN_LIST), operatorController.validatePlanAmount);
+
 router.get('/plans', authorizePermissions(PERMISSIONS.PLAN_LIST), planListValidator, operatorController.listPlans);
 
 router.post('/plans', authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN), authorizePermissions(PERMISSIONS.PLAN_CREATE), createPlanValidator, operatorController.createPlan);

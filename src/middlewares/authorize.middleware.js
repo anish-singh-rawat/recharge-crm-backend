@@ -3,12 +3,12 @@ import { ROLE_PERMISSIONS } from '../constants/permissions.js';
 import { AuthorizationError, AuthenticationError } from '../helpers/error.helper.js';
 
 export const authorizeRoles = (...roles) => (req, res, next) => {
-  // if (!req.user) throw new AuthenticationError('Authentication required');
-  // if (!roles.includes(req.user.role)) {
-  //   throw new AuthorizationError(
-  //     `Role '${req.user.role}' is not permitted. Required: ${roles.join(' or ')}`,
-  //   );
-  // }
+  if (!req.user) throw new AuthenticationError('Authentication required');
+  if (!roles.includes(req.user.role)) {
+    throw new AuthorizationError(
+      `Role '${req.user.role}' is not permitted. Required: ${roles.join(' or ')}`,
+    );
+  }
   next();
 };
 

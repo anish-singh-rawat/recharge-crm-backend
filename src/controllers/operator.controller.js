@@ -1,7 +1,9 @@
 import { operatorService } from '../services/operator.service.js';
+import { rechargePlanService } from '../services/rechargePlan.service.js';
 import { sendSuccess, paginatedResponse } from '../utils/response.util.js';
 import { asyncHandler } from '../utils/async.util.js';
 import { HTTP_STATUS } from '../constants/http.js';
+import { ValidationError } from '../helpers/error.helper.js';
 
 export const operatorController = {
 
@@ -112,5 +114,54 @@ export const operatorController = {
   deletePlan: asyncHandler(async (req, res) => {
     await operatorService.deletePlan(req.params.id, req.user.id);
     sendSuccess(res, { message: 'Plan deactivated successfully' });
+  }),
+
+
+  getPlanRecommendations: asyncHandler(async (req, res) => {
+    const { operatorId, circleId } = req.query;
+
+    if (!operatorId || !circleId) {
+      throw new ValidationError('operatorId and circleId are required');
+    }
+
+    const result = await rechargePlanService.getPlans(operatorId, circleId);
+
+    const popularPlans = result.plans.filter((p) => p.isPopular);
+    const regularPlans = result.plans.filter((p) => !p.isPopular);
+
+    sendSuccess(res, {
+      message: 'Plan recommendations retrieved',
+      data: {
+        popularPlans,
+        allPlans: result.plans,
+        regularPlans,
+        total: result.plans.length,
+        source: result.source,          
+        cachedAt: result.cachedAt ?? null,
+        operator: result.operator,
+        circle: result.circle,
+      },
+    });
+  }),
+
+
+  validatePlanAmount: asyncHandler(async (req, res) => {
+    const { operatorId, circleId, amount } = req.query;
+
+    if (!operatorId || !circleId || amount === undefined || amount === '') {
+      throw new ValidationError('operatorId, circleId and amount are required');
+    }
+
+    const parsedAmount = parseFloat(amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      throw new ValidationError('amount must be a positive number');
+    }
+
+    const result = await rechargePlanService.validateAmount(parsedAmount, operatorId, circleId);
+
+    sendSuccess(res, {
+      message: result.valid ? 'Plan found' : 'No matching plan',
+      data: result,
+    });
   }),
 };

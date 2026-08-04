@@ -240,6 +240,30 @@ class RechargeTransactionRepository extends BaseRepository {
       { $sort: { totalCommission: -1 } },
     ]);
   }
+
+
+  async getMostFrequentAmounts(operatorId, lookback = 500, topN = 5) {
+    return RechargeTransaction.aggregate([
+      {
+        $match: {
+          operator: typeof operatorId === 'string'
+            ? new mongoose.Types.ObjectId(operatorId)
+            : operatorId,
+          status: TRANSACTION_STATUS.SUCCESS,
+        },
+      },
+      { $sort: { createdAt: -1 } },
+      { $limit: lookback },
+      {
+        $group: {
+          _id: '$amount',
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { count: -1 } },
+      { $limit: topN },
+    ]);
+  }
 }
 
 export const rechargeTransactionRepository = new RechargeTransactionRepository();
