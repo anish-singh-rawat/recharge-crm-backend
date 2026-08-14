@@ -25,6 +25,10 @@ class ActivityLogRepository extends BaseRepository {
     const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
     return ActivityLog.deleteMany({ createdAt: { $lt: cutoff } });
   }
+
+  async deleteAll() {
+    return ActivityLog.deleteMany({});
+  }
 }
 
 class AuditLogRepository extends BaseRepository {
@@ -41,6 +45,10 @@ class AuditLogRepository extends BaseRepository {
         { path: 'targetUser', select: 'name email role' },
       ],
     });
+  }
+
+  async deleteAll() {
+    return AuditLog.deleteMany({});
   }
 }
 
@@ -91,6 +99,10 @@ class WebhookLogRepository extends BaseRepository {
   async deleteOlderThan(days) {
     const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
     return WebhookLog.deleteMany({ createdAt: { $lt: cutoff }, isProcessed: true });
+  }
+
+  async deleteAll() {
+    return WebhookLog.deleteMany({});
   }
 }
 

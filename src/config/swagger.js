@@ -5,7 +5,7 @@ const swaggerSpec = {
   info: {
     title: 'Recharge CRM API',
     version: env.app.version,
-    description: 'Production-ready Recharge Reseller CRM — Wallet, BBPS, Mobile Recharge, DTH, Utility payments.',
+    description: 'Production-ready Recharge Reseller CRM — Wallet, Mobile Recharge (Prepaid & Postpaid).',
     contact: { name: 'RechargeCRM Support', email: 'support@rechargecrmapp.com' },
     license: { name: 'MIT' },
   },
@@ -299,7 +299,7 @@ const swaggerSpec = {
       patch: { tags: ['Wallet'], summary: 'Unfreeze wallet (Admin)', parameters: [{ in: 'path', name: 'userId', required: true, schema: { type: 'string' } }], responses: { 200: { description: 'Unfrozen' } } },
     },
     '/recharge': {
-      post: { tags: ['Recharge'], summary: 'Initiate a recharge', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['mobileNumber', 'amount', 'operatorId', 'type'], properties: { mobileNumber: { type: 'string', example: '9876543210' }, amount: { type: 'number', example: 199 }, operatorId: { type: 'string' }, circleId: { type: 'string' }, type: { type: 'string', enum: ['MOBILE_PREPAID', 'MOBILE_POSTPAID', 'DTH', 'BROADBAND', 'ELECTRICITY', 'GAS', 'WATER', 'FASTAG', 'CABLE_TV'] } } } } } }, responses: { 201: { description: 'Recharge processed' }, 400: { description: 'Validation error' }, 402: { description: 'Insufficient balance' } } },
+      post: { tags: ['Recharge'], summary: 'Initiate a recharge', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['mobileNumber', 'amount', 'operatorId', 'type'], properties: { mobileNumber: { type: 'string', example: '9876543210' }, amount: { type: 'number', example: 199 }, operatorId: { type: 'string' }, circleId: { type: 'string' }, type: { type: 'string', enum: ['MOBILE_PREPAID', 'MOBILE_POSTPAID'] } } } } } }, responses: { 201: { description: 'Recharge processed' }, 400: { description: 'Validation error' }, 402: { description: 'Insufficient balance' } } },
     },
     '/recharge/my': {
       get: { tags: ['Recharge'], summary: 'Get my recharge transactions', parameters: [{ in: 'query', name: 'page', schema: { type: 'integer' } }, { in: 'query', name: 'limit', schema: { type: 'integer' } }, { in: 'query', name: 'status', schema: { type: 'string' } }, { in: 'query', name: 'startDate', schema: { type: 'string', format: 'date' } }, { in: 'query', name: 'endDate', schema: { type: 'string', format: 'date' } }], responses: { 200: { description: 'Transactions list' } } },
@@ -428,7 +428,7 @@ const swaggerSpec = {
     { name: 'Auth', description: 'Authentication & session management' },
     { name: 'Users', description: 'User management' },
     { name: 'Wallet', description: 'Wallet operations' },
-    { name: 'Recharge', description: 'Mobile / DTH / Utility recharge' },
+    { name: 'Recharge', description: 'Mobile Prepaid & Postpaid recharge' },
     { name: 'Operators', description: 'Operator, circle & plan management' },
     { name: 'Notifications', description: 'Notification management' },
     { name: 'Reports', description: 'Business intelligence' },

@@ -37,14 +37,7 @@ const operators = [
   { name: 'Idea',          code: 'IDEA',         providerCode: '3',  type: RECHARGE_TYPE.MOBILE_PREPAID,  minAmount: 10,  maxAmount: 5000,  commission: 2,   sortOrder: 3  },
   { name: 'BSNL',          code: 'BSNL',         providerCode: '4',  type: RECHARGE_TYPE.MOBILE_PREPAID,  minAmount: 10,  maxAmount: 5000,  commission: 2,   sortOrder: 4  },
   { name: 'Jio',           code: 'JIO',          providerCode: '5',  type: RECHARGE_TYPE.MOBILE_PREPAID,  minAmount: 10,  maxAmount: 5000,  commission: 2,   sortOrder: 5  },
-  { name: 'Dish TV',       code: 'DISHTV',       providerCode: '6',  type: RECHARGE_TYPE.DTH,             minAmount: 10,  maxAmount: 10000, commission: 1.5, sortOrder: 6  },
-  { name: 'Tata Sky',      code: 'TATASKY',      providerCode: '7',  type: RECHARGE_TYPE.DTH,             minAmount: 10,  maxAmount: 10000, commission: 1.5, sortOrder: 7  },
-  { name: 'Videocon D2H',  code: 'D2H',          providerCode: '11', type: RECHARGE_TYPE.DTH,             minAmount: 10,  maxAmount: 10000, commission: 1.5, sortOrder: 8  },
-  { name: 'Sun Direct',    code: 'SUNDIRECT',    providerCode: '12', type: RECHARGE_TYPE.DTH,             minAmount: 10,  maxAmount: 10000, commission: 1.5, sortOrder: 9  },
-  { name: 'Jio Postpaid',  code: 'JIO_POST',     providerCode: '17', type: RECHARGE_TYPE.MOBILE_POSTPAID, minAmount: 100, maxAmount: 10000, commission: 1.5, sortOrder: 10 },
-  { name: 'Airtel DTH',    code: 'AIRTEL_DTH',   providerCode: '24', type: RECHARGE_TYPE.DTH,             minAmount: 10,  maxAmount: 10000, commission: 1.5, sortOrder: 11 },
-  { name: 'DishTV EasyPay',code: 'DISHTV_EASY',  providerCode: '27', type: RECHARGE_TYPE.DTH,             minAmount: 10,  maxAmount: 10000, commission: 1.5, sortOrder: 12 },
-  { name: 'D2H Pay',       code: 'D2H_PAY',      providerCode: '28', type: RECHARGE_TYPE.DTH,             minAmount: 10,  maxAmount: 10000, commission: 1.5, sortOrder: 13 },
+  { name: 'Jio Postpaid',  code: 'JIO_POST',     providerCode: '17', type: RECHARGE_TYPE.MOBILE_POSTPAID, minAmount: 100, maxAmount: 10000, commission: 1.5, sortOrder: 6 },
 ];
 
 const seedCircles = async () => {

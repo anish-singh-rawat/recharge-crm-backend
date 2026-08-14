@@ -51,4 +51,45 @@ export const logController = {
       data: paginatedResponse(items, { page, limit, total }),
     });
   }),
+
+  deleteAllActivityLogs: asyncHandler(async (req, res) => {
+    const result = await activityLogRepository.deleteAll();
+    sendSuccess(res, {
+      message: 'All activity logs deleted',
+      data: { deletedCount: result.deletedCount },
+    });
+  }),
+
+  deleteAllAuditLogs: asyncHandler(async (req, res) => {
+    const result = await auditLogRepository.deleteAll();
+    sendSuccess(res, {
+      message: 'All audit logs deleted',
+      data: { deletedCount: result.deletedCount },
+    });
+  }),
+
+  deleteAllWebhookLogs: asyncHandler(async (req, res) => {
+    const result = await webhookLogRepository.deleteAll();
+    sendSuccess(res, {
+      message: 'All webhook logs deleted',
+      data: { deletedCount: result.deletedCount },
+    });
+  }),
+
+  deleteAllLogs: asyncHandler(async (req, res) => {
+    const [activity, audit, webhook] = await Promise.all([
+      activityLogRepository.deleteAll(),
+      auditLogRepository.deleteAll(),
+      webhookLogRepository.deleteAll(),
+    ]);
+    sendSuccess(res, {
+      message: 'All logs deleted',
+      data: {
+        activityLogs: activity.deletedCount,
+        auditLogs: audit.deletedCount,
+        webhookLogs: webhook.deletedCount,
+        totalDeleted: activity.deletedCount + audit.deletedCount + webhook.deletedCount,
+      },
+    });
+  }),
 };

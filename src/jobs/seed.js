@@ -82,7 +82,7 @@ const seedProvider = async () => {
     timeoutMs: 30000,
     retryCount: 3,
     retryDelayMs: 1000,
-    supportedTypes: ['MOBILE_PREPAID', 'MOBILE_POSTPAID', 'DTH', 'BROADBAND'],
+    supportedTypes: ['MOBILE_PREPAID', 'MOBILE_POSTPAID'],
   });
   logger.info('MRobotics provider seeded');
 };
