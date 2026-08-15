@@ -20,9 +20,7 @@ import { ROLES } from '../constants/roles.js';
 
 const router = Router();
 
-
 router.use(authenticate);
-
 
 router.get('/active', authorizePermissions(PERMISSIONS.OPERATOR_LIST), operatorController.listActiveOperators);
 
@@ -30,21 +28,9 @@ router.get('/', authorizePermissions(PERMISSIONS.OPERATOR_LIST), operatorListVal
 
 router.post('/', authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN), authorizePermissions(PERMISSIONS.OPERATOR_CREATE), createOperatorValidator, operatorController.createOperator);
 
-router.get('/:id', [mongoIdParam('id')], authorizePermissions(PERMISSIONS.OPERATOR_READ), operatorController.getOperator);
-
-router.put('/:id', authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN), authorizePermissions(PERMISSIONS.OPERATOR_UPDATE), updateOperatorValidator, operatorController.updateOperator);
-
-router.delete('/:id', [mongoIdParam('id')], authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN), authorizePermissions(PERMISSIONS.OPERATOR_DELETE), operatorController.deleteOperator);
-
-
 router.get('/circles/all', authorizePermissions(PERMISSIONS.CIRCLE_LIST), operatorController.listCircles);
 
 router.post('/circles', authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN), authorizePermissions(PERMISSIONS.CIRCLE_CREATE), createCircleValidator, operatorController.createCircle);
-
-router.get('/circles/:id', [mongoIdParam('id')], authorizePermissions(PERMISSIONS.CIRCLE_READ), operatorController.getCircle);
-
-router.put('/circles/:id', authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN), authorizePermissions(PERMISSIONS.CIRCLE_UPDATE), updateCircleValidator, operatorController.updateCircle);
-
 
 router.get('/plans/by-operator', authorizePermissions(PERMISSIONS.PLAN_LIST), operatorController.getPlansByOperatorCircle);
 
@@ -55,6 +41,16 @@ router.get('/plans/validate', authorizePermissions(PERMISSIONS.PLAN_LIST), opera
 router.get('/plans', authorizePermissions(PERMISSIONS.PLAN_LIST), planListValidator, operatorController.listPlans);
 
 router.post('/plans', authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN), authorizePermissions(PERMISSIONS.PLAN_CREATE), createPlanValidator, operatorController.createPlan);
+
+router.get('/:id', [mongoIdParam('id')], authorizePermissions(PERMISSIONS.OPERATOR_READ), operatorController.getOperator);
+
+router.put('/:id', authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN), authorizePermissions(PERMISSIONS.OPERATOR_UPDATE), updateOperatorValidator, operatorController.updateOperator);
+
+router.delete('/:id', [mongoIdParam('id')], authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN), authorizePermissions(PERMISSIONS.OPERATOR_DELETE), operatorController.deleteOperator);
+
+router.get('/circles/:id', [mongoIdParam('id')], authorizePermissions(PERMISSIONS.CIRCLE_READ), operatorController.getCircle);
+
+router.put('/circles/:id', authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN), authorizePermissions(PERMISSIONS.CIRCLE_UPDATE), updateCircleValidator, operatorController.updateCircle);
 
 router.get('/plans/:id', [mongoIdParam('id')], authorizePermissions(PERMISSIONS.PLAN_READ), operatorController.getPlan);
 
