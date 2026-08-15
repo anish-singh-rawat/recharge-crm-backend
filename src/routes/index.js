@@ -11,6 +11,7 @@ import settingRoutes from './setting.routes.js';
 import providerRoutes from './provider.routes.js';
 import logRoutes from './log.routes.js';
 import healthRoutes from './health.routes.js';
+import externalRoutes from './external.routes.js';
 
 const router = Router();
 
@@ -26,5 +27,6 @@ router.use('/api-keys', apiKeyRoutes);
 router.use('/settings', settingRoutes);
 router.use('/provider', providerRoutes);
 router.use('/logs', logRoutes);
+router.use('/ext', externalRoutes);
 
 export default router;

@@ -4,6 +4,7 @@ import { sessionRepository } from '../repositories/session.repository.js';
 import { walletRepository } from '../repositories/wallet.repository.js';
 import { auditLogRepository } from '../repositories/log.repository.js';
 import { notificationRepository } from '../repositories/notification.repository.js';
+import { apiKeyService } from './apiKey.service.js';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt.util.js';
 import { sha256Hash } from '../utils/crypto.util.js';
 import { generateOpaqueToken } from '../utils/id.util.js';
@@ -67,6 +68,24 @@ export const authService = {
       sendWelcomeEmail(email, { name }).catch((err) =>
         authLogger.error('Welcome email failed', { error: err.message }),
       );
+
+      if (role === ROLES.RETAILER) {
+        apiKeyService.create(user._id.toString(), {
+          name: 'Default API Key',
+          permissions: [
+            'recharge:initiate',
+            'recharge:read',
+            'recharge:list',
+            'recharge:status',
+            'wallet:read',
+            'operator:list',
+            'circle:list',
+            'plan:list',
+          ],
+        }).catch((err) =>
+          authLogger.error('Auto API key creation failed', { userId: user._id, error: err.message }),
+        );
+      }
 
       auditLogRepository.create({
         performedBy: createdBy,
