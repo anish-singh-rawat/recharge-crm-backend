@@ -113,7 +113,15 @@ export const operatorController = {
 
   deletePlan: asyncHandler(async (req, res) => {
     await operatorService.deletePlan(req.params.id, req.user.id);
-    sendSuccess(res, { message: 'Plan deactivated successfully' });
+    sendSuccess(res, { message: 'Plan deleted successfully' });
+  }),
+
+  deleteAllPlansByOperator: asyncHandler(async (req, res) => {
+    const result = await operatorService.deleteAllPlansByOperator(req.params.id);
+    sendSuccess(res, {
+      message: 'All plans deleted',
+      data: { deletedCount: result.deletedCount },
+    });
   }),
 
 

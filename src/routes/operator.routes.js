@@ -42,6 +42,8 @@ router.get('/plans', authorizePermissions(PERMISSIONS.PLAN_LIST), planListValida
 
 router.post('/plans', authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN), authorizePermissions(PERMISSIONS.PLAN_CREATE), createPlanValidator, operatorController.createPlan);
 
+router.delete('/:id/plans', [mongoIdParam('id')], authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN), authorizePermissions(PERMISSIONS.PLAN_DELETE), operatorController.deleteAllPlansByOperator);
+
 router.get('/:id', [mongoIdParam('id')], authorizePermissions(PERMISSIONS.OPERATOR_READ), operatorController.getOperator);
 
 router.put('/:id', authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN), authorizePermissions(PERMISSIONS.OPERATOR_UPDATE), updateOperatorValidator, operatorController.updateOperator);

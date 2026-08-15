@@ -136,6 +136,10 @@ export const operatorService = {
   async deletePlan(id, performedBy) {
     const plan = await planRepository.findById(id);
     if (!plan) throw new NotFoundError('Plan not found');
-    await planRepository.updateById(id, { $set: { isActive: false } });
+    await planRepository.deleteById(id);
+  },
+
+  async deleteAllPlansByOperator(operatorId) {
+    return planRepository.deleteMany({ operator: operatorId });
   },
 };
