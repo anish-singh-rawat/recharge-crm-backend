@@ -5,8 +5,8 @@ import https from "https";
 const API_TOKEN = process.env.MROBOTICS_API_KEY;
 const BASE_URL = "https://mrobotics.in";
 
-const MOBILE = "9876867369";
-const AMOUNT = "20";
+const MOBILE = "8755358203";
+const AMOUNT = "19";
 
 const COMPANY_IDS = {
   Airtel: "2",

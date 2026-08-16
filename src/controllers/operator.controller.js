@@ -97,8 +97,14 @@ export const operatorController = {
 
   getPlansByOperatorCircle: asyncHandler(async (req, res) => {
     const { operatorId, circleId } = req.query;
-    const plans = await operatorService.getPlansByOperatorCircle(operatorId, circleId);
-    sendSuccess(res, { message: 'Plans retrieved', data: { plans } });
+
+    if (!operatorId || !circleId) {
+      throw new ValidationError('operatorId and circleId are required');
+    }
+
+    const result = await rechargePlanService.getPlans(operatorId, circleId);
+
+    sendSuccess(res, { message: 'Plans retrieved', data: { plans: result.plans } });
   }),
 
   getPlan: asyncHandler(async (req, res) => {

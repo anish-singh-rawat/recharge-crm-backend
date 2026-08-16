@@ -82,6 +82,14 @@ const env = {
     retryCount: parseInt(process.env.MROBOTICS_RETRY_COUNT, 10) || 3,
     retryDelayMs: parseInt(process.env.MROBOTICS_RETRY_DELAY_MS, 10) || 1000,
   },
+  eko: {
+    baseUrl: process.env.EKO_BASE_URL || 'https://staging.eko.in:25004',
+    developerKey: process.env.EKO_DEVELOPER_KEY || '',
+    secretKey: process.env.EKO_SECRET_KEY || '',
+    initiatorId: process.env.EKO_INITIATOR_ID || '',
+    userCode: process.env.EKO_USER_CODE || '',
+    timeoutMs: parseInt(process.env.EKO_TIMEOUT_MS, 10) || 15000,
+  },
   retry: {
     maxAttempts: parseInt(process.env.RETRY_MAX_ATTEMPTS, 10) || 3,
     initialDelayMs: parseInt(process.env.RETRY_INITIAL_DELAY_MS, 10) || 1000,

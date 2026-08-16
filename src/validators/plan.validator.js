@@ -58,7 +58,16 @@ export const updatePlanValidator = [
 ];
 
 export const planListValidator = [
-  ...paginationQuery,
+  query('page')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('page must be a positive integer')
+    .toInt(),
+  query('limit')
+    .optional()
+    .isInt({ min: 1, max: 2000 })
+    .withMessage('limit must be between 1 and 2000')
+    .toInt(),
   query('operator')
     .optional()
     .isMongoId()
