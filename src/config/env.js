@@ -25,7 +25,7 @@ const env = {
     version: process.env.APP_VERSION || '1.0.0',
     env: process.env.NODE_ENV || 'development',
     port: parseInt(process.env.PORT, 10) || 8080,
-    url: process.env.APP_URL || 'http://localhost:8080',
+    url: process.env.APP_URL || 'https://api.rechpays.in',
     frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
     allowedOrigins: (process.env.ALLOWED_ORIGINS || 'http://localhost:5173').split(',').map((o) => o.trim()),
     isDev: process.env.NODE_ENV === 'development',
