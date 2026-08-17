@@ -1,15 +1,22 @@
 import multer from 'multer';
 import path from 'path';
 import crypto from 'crypto';
+import { fileURLToPath } from 'url';
 import env from '../config/env.js';
 import { BusinessError } from '../helpers/error.helper.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_FILE_SIZE_BYTES = env.upload.maxFileSizeMb * 1024 * 1024;
 
+const UPLOAD_DIR = path.isAbsolute(env.upload.dir)
+  ? env.upload.dir
+  : path.resolve(__dirname, '../../', env.upload.dir);
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, env.upload.dir);
+    cb(null, UPLOAD_DIR);
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
