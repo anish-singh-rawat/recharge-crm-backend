@@ -2,7 +2,6 @@ import { mroboticsRequest } from './client.js';
 import { mapperService } from './mapper.service.js';
 
 const getIsStv = (operatorCode, type) => {
-  if (operatorCode === '5') return 'true';
   if (operatorCode === '4') return type === 'MOBILE_PREPAID' ? 'false' : 'true';
   return 'false';
 };

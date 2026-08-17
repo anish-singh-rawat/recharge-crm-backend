@@ -86,7 +86,7 @@ export const rechargeService = {
         mobileNumber,
         amount,
         operatorCode: operator.providerCode || operator.code,
-        circleCode: '',
+        circleCode: circle?.providerCode || circle?.code || '',
         txnId,
         correlationId,
         type,
@@ -226,6 +226,7 @@ export const rechargeService = {
     assertRetryable(txn);
 
     const operator = await operatorRepository.findById(txn.operator);
+    const circle   = txn.circle ? await circleRepository.findById(txn.circle) : null;
     const nextRetryAt = calcNextRetryAt(txn.retryCount);
     await rechargeTransactionRepository.markRetry(txnId, nextRetryAt);
     await rechargeTransactionRepository.updateStatus(txnId, TRANSACTION_STATUS.PROCESSING);
@@ -239,7 +240,7 @@ export const rechargeService = {
         mobileNumber: txn.mobileNumber,
         amount: txn.amount,
         operatorCode: operator?.providerCode || operator?.code || '',
-        circleCode: '',
+        circleCode: circle?.providerCode || circle?.code || '',
         txnId,
         correlationId: txn.correlationId,
         type: txn.type,
