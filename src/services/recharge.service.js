@@ -131,6 +131,7 @@ export const rechargeService = {
     const finalStatus = providerResult.status;
     const updatedTxn = await rechargeTransactionRepository.updateStatus(txnId, finalStatus, {
       providerTxnId: providerResult.providerTxnId,
+      mroboticsRcId: providerResult.mroboticsRcId ?? null,
       providerStatus: providerResult.providerStatus,
       providerMessage: providerResult.message,
       providerResponseCode: providerResult.responseCode,
@@ -246,6 +247,7 @@ export const rechargeService = {
 
       const updatedTxn = await rechargeTransactionRepository.updateStatus(txnId, providerResult.status, {
         providerTxnId: providerResult.providerTxnId,
+        mroboticsRcId: providerResult.mroboticsRcId ?? null,
         providerStatus: providerResult.providerStatus,
         providerMessage: providerResult.message,
         isRetryable: false,

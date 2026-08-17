@@ -32,6 +32,7 @@ export const mapperService = {
       status:        internalStatus,
       providerStatus,
       providerTxnId: raw.tnx_id ?? raw.id?.toString() ?? null,
+      mroboticsRcId: raw.id?.toString() ?? null,
       operatorRef:   raw.lapu_id?.toString() ?? null,
       message:       typeof raw.response === 'string' ? (() => { try { const p = JSON.parse(raw.response); return p.responseMessage ?? raw.response; } catch { return raw.response; } })() : (raw.response ?? raw.errorMessage ?? ''),
       balance:       raw.balance ?? null,

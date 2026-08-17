@@ -77,6 +77,11 @@ const rechargeTransactionSchema = new mongoose.Schema(
       trim: true,
       default: null,
     },
+    mroboticsRcId: {
+      type: String,
+      trim: true,
+      default: null,
+    },
     providerStatus: {
       type: String,
       default: null,
