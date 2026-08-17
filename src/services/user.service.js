@@ -25,7 +25,7 @@ export const userService = {
     const user = await userRepository.findById(targetId);
     if (!user) throw new NotFoundError('User not found');
 
-    const allowed = ['name', 'businessName', 'commissionRate', 'isActive', 'permissions', 'address', 'gstNumber', 'panNumber'];
+    const allowed = ['name', 'businessName', 'commissionRate', 'isActive', 'permissions', 'address', 'gstNumber', 'panNumber', 'apiAccessEnabled' ];
     const sanitized = {};
     for (const key of allowed) {
       if (updateData[key] !== undefined) sanitized[key] = updateData[key];

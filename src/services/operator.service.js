@@ -62,8 +62,8 @@ export const operatorService = {
     const operator = await operatorRepository.findById(id);
     if (!operator) throw new NotFoundError('Operator not found');
 
-    //  await operatorRepository.deleteById(id);
-    await operatorRepository.updateById(id, { $set: { isActive: false } });
+     await operatorRepository.deleteById(id);
+    // await operatorRepository.updateById(id, { $set: { isActive: false } });
 
     auditLogRepository.create({
       performedBy,

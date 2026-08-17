@@ -185,6 +185,7 @@ export const authService = {
       role: user.role,
       wallet: user.wallet,
       lastLoginAt: user.lastLoginAt,
+      apiAccessEnabled: user.apiAccessEnabled || false,
     };
 
     return { user: safeUser, ...tokens };

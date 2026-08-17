@@ -66,4 +66,11 @@ router.patch(
   userController.unblockUser,
 );
 
+router.patch(
+  '/:id/api-access',
+  [mongoIdParam('id')],
+  authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN),
+  userController.toggleApiAccess,
+);
+
 export default router;

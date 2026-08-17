@@ -3,10 +3,10 @@ import env from './env.js';
 const swaggerSpec = {
   openapi: '3.0.3',
   info: {
-    title: 'Recharge CRM API',
+    title: 'rechpays API',
     version: env.app.version,
-    description: 'Production-ready Recharge Reseller CRM — Wallet, Mobile Recharge (Prepaid & Postpaid).',
-    contact: { name: 'RechargeCRM Support', email: 'support@rechargecrmapp.com' },
+    description: 'rechpays — Mobile Recharge Reseller Platform (Prepaid & Postpaid).',
+    contact: { name: 'rechpays Support', email: 'support@rechpays.com' },
     license: { name: 'MIT' },
   },
   servers: [

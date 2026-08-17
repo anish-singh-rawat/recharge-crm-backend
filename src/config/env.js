@@ -21,7 +21,7 @@ for (const key of required) {
 
 const env = {
   app: {
-    name: process.env.APP_NAME || 'RechargeCRM',
+    name: process.env.APP_NAME || 'rechpays',
     version: process.env.APP_VERSION || '1.0.0',
     env: process.env.NODE_ENV || 'development',
     port: parseInt(process.env.PORT, 10) || 8080,
@@ -66,8 +66,8 @@ const env = {
     secure: process.env.SMTP_SECURE === 'true',
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
-    fromName: process.env.SMTP_FROM_NAME || 'RechargeCRM',
-    fromEmail: process.env.SMTP_FROM_EMAIL || 'noreply@rechargecrmapp.com',
+    fromName: process.env.SMTP_FROM_NAME || 'rechpays',
+    fromEmail: process.env.SMTP_FROM_EMAIL || 'noreply@rechpays.com',
   },
   accountLock: {
     maxAttempts: parseInt(process.env.MAX_LOGIN_ATTEMPTS, 10) || 5,

@@ -47,6 +47,7 @@ export const authenticate = asyncHandler(async (req, res, next) => {
     permissions: user.permissions || [],
     wallet: user.wallet,
     commissionRate: user.commissionRate || 0,
+    apiAccessEnabled: user.apiAccessEnabled || false,
   };
 
   req.requestId = req.requestId || `REQ-${Date.now()}`;

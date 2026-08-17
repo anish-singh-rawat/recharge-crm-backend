@@ -50,4 +50,17 @@ export const userController = {
     await userService.deleteUser(req.params.id, req.user.id);
     sendSuccess(res, { message: 'User deleted successfully' });
   }),
+
+  toggleApiAccess: asyncHandler(async (req, res) => {
+    const user = await userService.getUser(req.params.id);
+    const updated = await userService.updateUser(
+      req.params.id,
+      { apiAccessEnabled: !user.apiAccessEnabled },
+      req.user.id,
+    );
+    sendSuccess(res, {
+      message: `API access ${updated.apiAccessEnabled ? 'enabled' : 'disabled'} for ${updated.name}`,
+      data: { apiAccessEnabled: updated.apiAccessEnabled },
+    });
+  }),
 };

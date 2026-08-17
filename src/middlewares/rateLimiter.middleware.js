@@ -21,14 +21,15 @@ export const generalRateLimiter = rateLimit({
 });
 
 export const authRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: env.rateLimit.authMax,
+  windowMs: 30 * 60 * 1000,
+  max: 3,
   standardHeaders: true,
   legacyHeaders: false,
+  skipSuccessfulRequests: true,
   handler: (req, res) => {
     res.status(HTTP_STATUS.TOO_MANY_REQUESTS).json({
       success: false,
-      message: 'Too many authentication attempts. Please try again in 15 minutes.',
+      message: 'Too many failed login attempts. Your IP has been blocked for 30 minutes.',
       errors: [],
     });
   },

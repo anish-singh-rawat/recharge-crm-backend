@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { rechargeController } from '../controllers/recharge.controller.js';
 import { authenticateApiKey } from '../middlewares/authenticateApiKey.middleware.js';
+import { requireApiAccess } from '../middlewares/requireApiAccess.middleware.js';
 import { authorizePermissions } from '../middlewares/authorize.middleware.js';
 import { rechargeRateLimiter } from '../middlewares/rateLimiter.middleware.js';
 import {
@@ -15,6 +16,7 @@ import { PERMISSIONS } from '../constants/permissions.js';
 const router = Router();
 
 router.use(authenticateApiKey);
+router.use(requireApiAccess);
 
 router.post(
   '/recharge',
