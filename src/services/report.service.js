@@ -8,9 +8,10 @@ import mongoose from 'mongoose';
 export const reportService = {
   async getSalesReport(query) {
     const { filter, pagination, sort } = buildListQuery(query, {
-      exactFields: ['status', 'type', 'user', 'operator'],
+      exactFields: ['status', 'type', 'operator'],
       dateField: 'createdAt',
     });
+    if (query.userId) filter.user = new mongoose.Types.ObjectId(query.userId);
 
     const [summary, paginated] = await Promise.all([
       rechargeTransactionRepository.getSalesSummary(filter),
@@ -40,23 +41,27 @@ export const reportService = {
 
   async getSalesByOperator(query) {
     const dateFilter = buildDateRangeFilter(query.startDate, query.endDate);
-    return rechargeTransactionRepository.getSalesByOperator(dateFilter);
+    const extraFilter = {};
+    if (query.userId) extraFilter.user = new mongoose.Types.ObjectId(query.userId);
+    return rechargeTransactionRepository.getSalesByOperator({ ...dateFilter, ...extraFilter });
   },
 
   async getRechargeReport(query) {
     const { filter, pagination, sort } = buildListQuery(query, {
-      exactFields: ['status', 'type', 'operator', 'user'],
+      exactFields: ['status', 'type', 'operator'],
       searchFields: ['mobileNumber', 'txnId'],
       dateField: 'createdAt',
     });
+    if (query.userId) filter.user = new mongoose.Types.ObjectId(query.userId);
     return rechargeTransactionRepository.findPaginatedWithDetails(filter, { ...pagination, sort });
   },
 
   async getWalletReport(query) {
     const { filter, pagination, sort } = buildListQuery(query, {
-      exactFields: ['type', 'status', 'user'],
+      exactFields: ['type', 'status'],
       dateField: 'createdAt',
     });
+    if (query.user) filter.user = new mongoose.Types.ObjectId(query.user);
     return walletTransactionRepository.findPaginated(filter, {
       ...pagination,
       sort,

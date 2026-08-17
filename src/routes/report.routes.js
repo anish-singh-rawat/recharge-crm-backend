@@ -13,25 +13,66 @@ import { ROLES } from '../constants/roles.js';
 
 const router = Router();
 
-
 router.use(authenticate);
 
 router.get('/dashboard', reportController.getDashboard);
 
-router.get('/recharge/my', authorizePermissions(PERMISSIONS.REPORT_RECHARGE), rechargeReportValidator, reportController.getMyRechargeReport);
+router.get(
+  '/recharge/my',
+  authorizePermissions(PERMISSIONS.REPORT_RECHARGE),
+  rechargeReportValidator,
+  reportController.getMyRechargeReport,
+);
 
-router.get('/wallet/my', authorizePermissions(PERMISSIONS.REPORT_WALLET), walletReportValidator, reportController.getMyWalletReport);
+router.get(
+  '/wallet/my',
+  authorizePermissions(PERMISSIONS.REPORT_WALLET),
+  walletReportValidator,
+  reportController.getMyWalletReport,
+);
 
-router.get('/sales', authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN), authorizePermissions(PERMISSIONS.REPORT_SALES), salesReportValidator, reportController.getSalesReport);
+router.get(
+  '/recharge',
+  authorizePermissions(PERMISSIONS.REPORT_RECHARGE),
+  rechargeReportValidator,
+  reportController.getRechargeReport,
+);
 
-router.get('/sales/by-day', authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN), authorizePermissions(PERMISSIONS.REPORT_SALES), reportController.getSalesByDay);
+router.get(
+  '/wallet',
+  authorizePermissions(PERMISSIONS.REPORT_WALLET),
+  walletReportValidator,
+  reportController.getWalletReport,
+);
 
-router.get('/sales/by-operator', authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN), authorizePermissions(PERMISSIONS.REPORT_SALES), reportController.getSalesByOperator);
+router.get(
+  '/sales',
+  authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN),
+  authorizePermissions(PERMISSIONS.REPORT_SALES),
+  salesReportValidator,
+  reportController.getSalesReport,
+);
 
-router.get('/recharge', authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN), authorizePermissions(PERMISSIONS.REPORT_RECHARGE), rechargeReportValidator, reportController.getRechargeReport);
+router.get(
+  '/sales/by-day',
+  authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN),
+  authorizePermissions(PERMISSIONS.REPORT_SALES),
+  reportController.getSalesByDay,
+);
 
-router.get('/wallet', authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN), authorizePermissions(PERMISSIONS.REPORT_WALLET), walletReportValidator, reportController.getWalletReport);
+router.get(
+  '/sales/by-operator',
+  authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN),
+  authorizePermissions(PERMISSIONS.REPORT_SALES),
+  reportController.getSalesByOperator,
+);
 
-router.get('/commission', authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN), authorizePermissions(PERMISSIONS.REPORT_COMMISSION), commissionReportValidator, reportController.getCommissionReport);
+router.get(
+  '/commission',
+  authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN),
+  authorizePermissions(PERMISSIONS.REPORT_COMMISSION),
+  commissionReportValidator,
+  reportController.getCommissionReport,
+);
 
 export default router;

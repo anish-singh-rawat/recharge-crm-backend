@@ -1,19 +1,28 @@
 import { reportService } from '../services/report.service.js';
 import { sendSuccess, paginatedResponse } from '../utils/response.util.js';
 import { asyncHandler } from '../utils/async.util.js';
+import { ROLES } from '../constants/roles.js';
+
+const isAdmin = (user) =>
+  user.role === ROLES.SUPER_ADMIN || user.role === ROLES.ADMIN;
+
+const userScope = (req) =>
+  isAdmin(req.user) ? req.query : { ...req.query, userId: req.user.id };
+
+const walletScope = (req) =>
+  isAdmin(req.user) ? req.query : { ...req.query, user: req.user.id };
 
 export const reportController = {
   getDashboard: asyncHandler(async (req, res) => {
-    const isRetailer = req.user.role === 'retailer';
     const stats = await reportService.getDashboardStats(
-      isRetailer ? req.user.id : null,
+      isAdmin(req.user) ? null : req.user.id,
       req.user.role,
     );
     sendSuccess(res, { message: 'Dashboard stats retrieved', data: stats });
   }),
 
   getSalesReport: asyncHandler(async (req, res) => {
-    const result = await reportService.getSalesReport(req.query);
+    const result = await reportService.getSalesReport(userScope(req));
     sendSuccess(res, {
       message: 'Sales report retrieved',
       data: {
@@ -28,17 +37,17 @@ export const reportController = {
   }),
 
   getSalesByDay: asyncHandler(async (req, res) => {
-    const data = await reportService.getSalesByDay(req.query);
+    const data = await reportService.getSalesByDay(userScope(req));
     sendSuccess(res, { message: 'Daily sales report retrieved', data: { report: data } });
   }),
 
   getSalesByOperator: asyncHandler(async (req, res) => {
-    const data = await reportService.getSalesByOperator(req.query);
+    const data = await reportService.getSalesByOperator(userScope(req));
     sendSuccess(res, { message: 'Operator sales report retrieved', data: { report: data } });
   }),
 
   getRechargeReport: asyncHandler(async (req, res) => {
-    const { items, total } = await reportService.getRechargeReport(req.query);
+    const { items, total } = await reportService.getRechargeReport(userScope(req));
     sendSuccess(res, {
       message: 'Recharge report retrieved',
       data: paginatedResponse(items, {
@@ -50,7 +59,7 @@ export const reportController = {
   }),
 
   getWalletReport: asyncHandler(async (req, res) => {
-    const { items, total } = await reportService.getWalletReport(req.query);
+    const { items, total } = await reportService.getWalletReport(walletScope(req));
     sendSuccess(res, {
       message: 'Wallet report retrieved',
       data: paginatedResponse(items, {
@@ -62,7 +71,7 @@ export const reportController = {
   }),
 
   getCommissionReport: asyncHandler(async (req, res) => {
-    const data = await reportService.getCommissionReport(req.query);
+    const data = await reportService.getCommissionReport(userScope(req));
     sendSuccess(res, { message: 'Commission report retrieved', data: { report: data } });
   }),
 
