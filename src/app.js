@@ -37,6 +37,7 @@ app.use(helmet({
   },
 }));
 
+console.log("v.app.allowedOrigins : ", env.app.allowedOrigins);
 app.use(cors({
   origin(origin, callback) {
     if (!origin || env.app.allowedOrigins.includes(origin)) {
