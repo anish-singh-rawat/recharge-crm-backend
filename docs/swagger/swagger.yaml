@@ -15,7 +15,7 @@ info:
     - Recharge: 30 req / min per user
     - Password reset: 3 req / hr per IP
   contact:
-    name: RechargeCRM Support
+    name: RechPays Support
     email: support@rechargecrmapp.com
   license:
     name: MIT
