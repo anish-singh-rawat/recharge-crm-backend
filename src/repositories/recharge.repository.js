@@ -142,8 +142,20 @@ class RechargeTransactionRepository extends BaseRepository {
         $group: {
           _id: null,
           totalTransactions: { $sum: 1 },
-          totalAmount: { $sum: '$amount' },
-          totalCommission: { $sum: '$commission' },
+          // totalAmount: { $sum: '$amount' },
+          // totalCommission: { $sum: '$commission' },
+
+          totalAmount: {
+            $sum: {
+              $cond: [{ $eq: ['$status', TRANSACTION_STATUS.SUCCESS] }, '$amount', 0],
+            },
+          },
+          totalCommission: {
+            $sum: {
+              $cond: [{ $eq: ['$status', TRANSACTION_STATUS.SUCCESS] }, '$commission', 0],
+            },
+          },
+
           successCount: {
             $sum: { $cond: [{ $eq: ['$status', 'SUCCESS'] }, 1, 0] },
           },
