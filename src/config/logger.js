@@ -56,7 +56,7 @@ if (process.env.NODE_ENV !== 'production') {
 } else {
   transports.push(
     new winston.transports.Console({
-      level: 'warn',
+      level: 'info',
       format: prodFormat,
     }),
   );
