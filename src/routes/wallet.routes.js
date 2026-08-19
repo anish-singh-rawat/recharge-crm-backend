@@ -24,6 +24,18 @@ router.use(authenticate);
 router.get('/me', authorizePermissions(PERMISSIONS.WALLET_READ), walletController.getMyWallet);
 
 router.get(
+  '/me/commission',
+  authorizePermissions(PERMISSIONS.WALLET_READ),
+  walletController.getMyCommission,
+);
+
+router.post(
+  '/me/commission/withdraw',
+  authorizePermissions(PERMISSIONS.WALLET_READ),
+  walletController.withdrawCommission,
+);
+
+router.get(
   '/me/statement',
   authorizePermissions(PERMISSIONS.WALLET_STATEMENT),
   myWalletStatementValidator,

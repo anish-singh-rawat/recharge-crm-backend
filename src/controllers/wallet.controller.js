@@ -8,6 +8,16 @@ export const walletController = {
     sendSuccess(res, { message: 'Wallet retrieved', data: { wallet } });
   }),
 
+  getMyCommission: asyncHandler(async (req, res) => {
+    const commission = await walletService.getMyCommission(req.user.id);
+    sendSuccess(res, { message: 'Commission retrieved', data: commission });
+  }),
+
+  withdrawCommission: asyncHandler(async (req, res) => {
+    const result = await walletService.withdrawCommission(req.user.id);
+    sendSuccess(res, { message: `₹${result.amount.toFixed(2)} commission added to wallet`, data: result });
+  }),
+
   getWalletByUserId: asyncHandler(async (req, res) => {
     const wallet = await walletService.getWallet(req.params.userId);
     sendSuccess(res, { message: 'Wallet retrieved', data: { wallet } });

@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { walletRepository, walletTransactionRepository } from '../repositories/wallet.repository.js';
+import { rechargeTransactionRepository } from '../repositories/recharge.repository.js';
 import { userRepository } from '../repositories/user.repository.js';
 import { notificationRepository } from '../repositories/notification.repository.js';
 import { auditLogRepository } from '../repositories/log.repository.js';
@@ -193,6 +194,105 @@ export const walletService = {
     }).catch(() => {});
 
     return updated;
+  },
+
+  async getMyCommission(userId) {
+    const result = await rechargeTransactionRepository.model.aggregate([
+      {
+        $match: {
+          user: new mongoose.Types.ObjectId(userId),
+          status: 'SUCCESS',
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalCommission: { $sum: '$commission' },
+          totalTransactions: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const totalCommission = parseFloat((result[0]?.totalCommission || 0).toFixed(2));
+    const totalTransactions = result[0]?.totalTransactions || 0;
+
+    const alreadyWithdrawn = await walletTransactionRepository.model.aggregate([
+      {
+        $match: {
+          user: new mongoose.Types.ObjectId(userId),
+          type: WALLET_TRANSACTION_TYPE.COMMISSION,
+          referenceType: 'COMMISSION_WITHDRAWAL',
+        },
+      },
+      { $group: { _id: null, total: { $sum: '$amount' } } },
+    ]);
+
+    const withdrawn = parseFloat((alreadyWithdrawn[0]?.total || 0).toFixed(2));
+    const available = parseFloat(Math.max(0, totalCommission - withdrawn).toFixed(2));
+
+    return {
+      totalCommission,
+      totalTransactions,
+      withdrawn,
+      available,
+    };
+  },
+
+  async withdrawCommission(userId) {
+    const commissionData = await this.getMyCommission(userId);
+
+    if (commissionData.available <= 0) {
+      throw new WalletError('No commission available to withdraw');
+    }
+
+    const wallet = await walletRepository.findByUserId(userId);
+    if (!wallet) throw new NotFoundError('Wallet not found');
+
+    assertWalletCanCredit(wallet, commissionData.available);
+
+    const amount = commissionData.available;
+
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+      const updatedWallet = await walletRepository.creditBalance(wallet._id, amount, session);
+      const txnId = generateWalletTxnId();
+
+      const txn = await walletTransactionRepository.create({
+        wallet: wallet._id,
+        user: userId,
+        txnId,
+        type: WALLET_TRANSACTION_TYPE.COMMISSION,
+        amount,
+        balanceBefore: wallet.balance,
+        balanceAfter: updatedWallet.balance,
+        description: `Commission withdrawal — ₹${amount.toFixed(2)}`,
+        referenceType: 'COMMISSION_WITHDRAWAL',
+        performedBy: userId,
+      });
+
+      await session.commitTransaction();
+
+      notificationRepository.create({
+        user: userId,
+        title: 'Commission Withdrawn',
+        message: `₹${amount.toFixed(2)} commission has been added to your wallet.`,
+        type: NOTIFICATION_TYPE.SUCCESS,
+        event: NOTIFICATION_EVENT.WALLET_CREDITED,
+        referenceId: txnId,
+        referenceType: 'WalletTransaction',
+      }).catch(() => {});
+
+      walletLogger.info('Commission withdrawn', { userId, amount, txnId });
+
+      return { amount, wallet: updatedWallet, transaction: txn };
+    } catch (err) {
+      await session.abortTransaction();
+      throw err;
+    } finally {
+      session.endSession();
+    }
   },
 
   async getStatement(userId, query) {
