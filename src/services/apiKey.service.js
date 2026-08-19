@@ -44,6 +44,17 @@ export const apiKeyService = {
     return apiKeyRepository.revoke(keyId, userId, reason);
   },
 
+  async updateAllowedIps(keyId, userId, role, allowedIps) {
+    const key = await apiKeyRepository.findById(keyId);
+    if (!key) throw new NotFoundError('API key not found');
+
+    if (role !== 'super_admin' && role !== 'admin' && key.user.toString() !== userId) {
+      throw new AuthorizationError('Cannot update another user\'s API key');
+    }
+
+    return apiKeyRepository.updateById(keyId, { $set: { allowedIps } });
+  },
+
   async getById(keyId, userId, role) {
     const key = await apiKeyRepository.findById(keyId);
     if (!key) throw new NotFoundError('API key not found');

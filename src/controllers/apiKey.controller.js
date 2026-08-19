@@ -32,4 +32,18 @@ export const apiKeyController = {
     );
     sendSuccess(res, { message: 'API key revoked successfully', data: { key } });
   }),
+
+  updateAllowedIps: asyncHandler(async (req, res) => {
+    const { allowedIps = [] } = req.body;
+    const key = await apiKeyService.updateAllowedIps(
+      req.params.id,
+      req.user.id,
+      req.user.role,
+      allowedIps,
+    );
+    const message = allowedIps.length === 0
+      ? 'IP restriction removed — all IPs now allowed'
+      : `IP whitelist updated — ${allowedIps.length} IP(s) allowed`;
+    sendSuccess(res, { message, data: { key } });
+  }),
 };

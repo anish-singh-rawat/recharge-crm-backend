@@ -33,6 +33,21 @@ export const createApiKeyValidator = [
   validate,
 ];
 
+export const updateAllowedIpsValidator = [
+  mongoIdParam('id'),
+  body('allowedIps')
+    .isArray()
+    .withMessage('allowedIps must be an array')
+    .custom((ips) => {
+      const ipRegex = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/;
+      for (const ip of ips) {
+        if (!ipRegex.test(ip)) throw new Error(`Invalid IP address: ${ip}`);
+      }
+      return true;
+    }),
+  validate,
+];
+
 export const revokeApiKeyValidator = [
   mongoIdParam('id'),
   body('reason')
