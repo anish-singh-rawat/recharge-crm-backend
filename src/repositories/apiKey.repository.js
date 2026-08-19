@@ -18,18 +18,19 @@ class ApiKeyRepository extends BaseRepository {
   }
 
   async revoke(id, revokedBy, reason = '') {
-    return ApiKey.findByIdAndUpdate(
-      id,
-      {
-        $set: {
-          isActive: false,
-          revokedAt: new Date(),
-          revokedBy,
-          revokedReason: reason,
-        },
-      },
-      { new: true },
-    ).lean();
+    // return ApiKey.findByIdAndUpdate(
+    //   id,
+    //   {
+    //     $set: {
+    //       isActive: false,
+    //       revokedAt: new Date(),
+    //       revokedBy,
+    //       revokedReason: reason,
+    //     },
+    //   },
+    //   { new: true },
+    // ).lean();
+    return ApiKey.findByIdAndDelete(id).lean();
   }
 
   async findActiveByUser(userId) {
