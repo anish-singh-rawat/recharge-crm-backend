@@ -104,4 +104,42 @@ export const reportController = {
       }),
     });
   }),
+
+  exportRechargeReport: asyncHandler(async (req, res) => {
+    const { items } = await reportService.getRechargeReport({
+      ...userScope(req),
+      limit: 10000,
+      page: 1,
+    });
+    sendSuccess(res, { message: 'Export data retrieved', data: { items } });
+  }),
+
+  exportWalletReport: asyncHandler(async (req, res) => {
+    const { items } = await reportService.getWalletReport({
+      ...walletScope(req),
+      limit: 10000,
+      page: 1,
+    });
+    sendSuccess(res, { message: 'Export data retrieved', data: { items } });
+  }),
+
+  exportMyRechargeReport: asyncHandler(async (req, res) => {
+    const { items } = await reportService.getRechargeReport({
+      ...req.query,
+      userId: req.user.id,
+      limit: 10000,
+      page: 1,
+    });
+    sendSuccess(res, { message: 'Export data retrieved', data: { items } });
+  }),
+
+  exportMyWalletReport: asyncHandler(async (req, res) => {
+    const { items } = await reportService.getWalletReport({
+      ...req.query,
+      user: req.user.id,
+      limit: 10000,
+      page: 1,
+    });
+    sendSuccess(res, { message: 'Export data retrieved', data: { items } });
+  }),
 };

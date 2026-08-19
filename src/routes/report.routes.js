@@ -25,10 +25,22 @@ router.get(
 );
 
 router.get(
+  '/recharge/my/export',
+  authorizePermissions(PERMISSIONS.REPORT_RECHARGE),
+  reportController.exportMyRechargeReport,
+);
+
+router.get(
   '/wallet/my',
   authorizePermissions(PERMISSIONS.REPORT_WALLET),
   walletReportValidator,
   reportController.getMyWalletReport,
+);
+
+router.get(
+  '/wallet/my/export',
+  authorizePermissions(PERMISSIONS.REPORT_WALLET),
+  reportController.exportMyWalletReport,
 );
 
 router.get(
@@ -39,10 +51,22 @@ router.get(
 );
 
 router.get(
+  '/recharge/export',
+  authorizePermissions(PERMISSIONS.REPORT_RECHARGE),
+  reportController.exportRechargeReport,
+);
+
+router.get(
   '/wallet',
   authorizePermissions(PERMISSIONS.REPORT_WALLET),
   walletReportValidator,
   reportController.getWalletReport,
+);
+
+router.get(
+  '/wallet/export',
+  authorizePermissions(PERMISSIONS.REPORT_WALLET),
+  reportController.exportWalletReport,
 );
 
 router.get(
