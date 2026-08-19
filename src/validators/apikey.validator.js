@@ -26,7 +26,7 @@ export const createApiKeyValidator = [
       return true;
     }),
   body('expiresAt')
-    .optional()
+     .optional({ nullable: true })
     .isISO8601()
     .withMessage('expiresAt must be a valid ISO 8601 date')
     .toDate(),
