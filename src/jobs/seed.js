@@ -75,6 +75,7 @@ const seedSettings = async () => {
       isEditable: true,
     },
   ];
+  //  await Setting.deleteMany({});
 
   for (const setting of settings) {
     await Setting.findOneAndUpdate({ key: setting.key }, setting, { upsert: true, new: true });
@@ -108,7 +109,7 @@ const seedProvider = async () => {
 };
 
 const run = async () => {
-  // await connectDB();
+  await connectDB();
   // await seedRoles();
   // await seedSuperAdmin();
   await seedSettings();

@@ -1,6 +1,5 @@
 import { realroboRequest } from './client.js';
 import { realroboMapperService } from './mapper.service.js';
-import env from '../../../config/env.js';
 
 export const realroboRechargeService = {
   async doRecharge({ mobileNumber, amount, operatorCode, circleCode = '', txnId, correlationId }) {
@@ -11,7 +10,7 @@ export const realroboRechargeService = {
         amount:      String(amount),
         req_id:      txnId,
         operator_id: String(operatorCode),
-        state_id:    circleCode || env.realrobo.defaultStateId,
+        state_id:    circleCode || '22',
       },
       correlationId,
     });

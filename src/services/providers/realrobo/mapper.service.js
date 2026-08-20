@@ -12,6 +12,11 @@ const STATUS_MAP = {
   processing: TRANSACTION_STATUS.PROCESSING,
 };
 
+function buildMessage(raw) {
+  const parts = [raw.message ?? raw.msg, raw.remark].filter(Boolean);
+  return parts.join(' — ');
+}
+
 export const realroboMapperService = {
   mapRechargeResponse(raw) {
     if (!raw || typeof raw !== 'object') {
@@ -33,12 +38,11 @@ export const realroboMapperService = {
     return {
       status: internalStatus,
       providerStatus,
-      providerTxnId: raw.txid?.toString() ?? null,
-      mroboticsRcId: raw.txid?.toString() ?? null,
-      operatorRef: raw.req_id?.toString() ?? null,
-      message: raw.message ?? raw.msg ?? '',
+      providerTxnId: raw.txid?.toString() || null,
+      mroboticsRcId: raw.txid?.toString() || null,
+      operatorRef: raw.req_id?.toString() || null,
+      message: buildMessage(raw),
       balance: raw.lapu_balance ?? null,
-      lapuNo: raw.lapu?.lapu_no ?? null,
       rawResponse: raw,
     };
   },
@@ -57,8 +61,8 @@ export const realroboMapperService = {
     return {
       status: internalStatus,
       providerStatus: String(raw.status ?? '').toLowerCase(),
-      providerTxnId: raw.txid?.toString() ?? null,
-      message: raw.message ?? raw.msg ?? '',
+      providerTxnId: raw.txid?.toString() || null,
+      message: buildMessage(raw),
     };
   },
 };

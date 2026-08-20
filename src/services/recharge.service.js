@@ -107,6 +107,18 @@ async function callProviderWithFallback({ mobileNumber, amount, operator, circle
         status: result.status,
       });
 
+      if (result.status === 'FAILED') {
+        const failMsg = result.message || `${providerName} recharge failed`;
+        rechargeLogger.warn(`Provider ${providerName} returned FAILED, trying next`, {
+          txnId,
+          provider: providerName,
+          message: failMsg,
+        });
+        lastError = new Error(failMsg);
+        lastError.isRetryable = false;
+        continue;
+      }
+
       return { result, usedProvider: providerName };
     } catch (err) {
       const errMsg = typeof err.message === 'string'
