@@ -17,6 +17,11 @@ import { NOTIFICATION_EVENT, NOTIFICATION_TYPE } from '../constants/notification
 import { rechargeLogger } from '../config/logger.js';
 import env from '../config/env.js';
 
+const OPERATOR_CODE_MAP = {
+  'JIO': '5', 'AIRTEL': '2', 'VI': '1', 'IDEA': '3', 'BSNL': '4',
+  'JIO_POST': '17', 'AIRTEL_POST': '2',
+};
+
 export const rechargeService = {
   async initiateRecharge({ mobileNumber, amount, operatorId, circleId, type }, user, requestMeta = {}) {
     const operator = await operatorRepository.findById(operatorId);
@@ -27,6 +32,11 @@ export const rechargeService = {
       circle = await circleRepository.findById(circleId);
       if (!circle || !circle.isActive) throw new RechargeError('Invalid or inactive circle');
     }
+
+    const resolvedOperatorCode =
+      operator.providerCode ||
+      OPERATOR_CODE_MAP[operator.code?.toUpperCase()] ||
+      operator.code;
 
     if (amount < operator.minAmount) throw new RechargeError(`Minimum recharge amount for this operator is ₹${operator.minAmount}`);
     if (amount > operator.maxAmount) throw new RechargeError(`Maximum recharge amount for this operator is ₹${operator.maxAmount}`);
@@ -85,14 +95,18 @@ export const rechargeService = {
       providerResult = await mroboticsProvider.recharge({
         mobileNumber,
         amount,
-        operatorCode: operator.providerCode || operator.code,
+        operatorCode: resolvedOperatorCode,
         circleCode: circle?.providerCode || circle?.code || '',
         txnId,
         correlationId,
         type,
       });
     } catch (providerErr) {
-      rechargeLogger.error('Provider call failed', { txnId, error: providerErr.message });
+      const errMsg = typeof providerErr.message === 'string'
+        ? providerErr.message
+        : providerErr.errorMessage || providerErr.rawResponse?.errorMessage || 'Recharge failed';
+
+      rechargeLogger.error('Provider call failed', { txnId, error: errMsg });
 
       const isRetryable = providerErr.isRetryable !== false;
       const nextRetryAt = isRetryable ? calcNextRetryAt(0) : null;
@@ -102,7 +116,7 @@ export const rechargeService = {
         {
           $set: {
             status: TRANSACTION_STATUS.FAILED,
-            statusMessage: providerErr.message,
+            statusMessage: errMsg,
             isRetryable,
             nextRetryAt,
           },
@@ -125,7 +139,7 @@ export const rechargeService = {
         referenceId: txnId,
       }).catch(() => {});
 
-      throw new RechargeError(providerErr.message || 'Recharge failed. Amount has been refunded.');
+      throw new RechargeError(errMsg || 'Recharge failed. Amount has been refunded.');
     }
 
     const finalStatus = providerResult.status;

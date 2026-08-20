@@ -103,9 +103,11 @@ export const mroboticsRequest = async ({
     rawResponse = err.response?.data ?? null;
 
     errorMessage =
+      err.response?.data?.errorMessage ||
       err.response?.data?.message ||
-      err.response?.data?.error ||
-      err.message;
+      (typeof err.response?.data?.error === 'string' ? err.response.data.error : null) ||
+      err.message ||
+      'MRobotics request failed';
 
     console.log('\n==============================================');
     console.log('MROBOTICS ERROR');
