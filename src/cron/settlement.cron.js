@@ -1,6 +1,5 @@
 import cron from 'node-cron';
 import { rechargeTransactionRepository } from '../repositories/recharge.repository.js';
-import { walletRepository } from '../repositories/wallet.repository.js';
 import { cronLogger } from '../config/logger.js';
 import env from '../config/env.js';
 
@@ -18,7 +17,6 @@ const runSettlement = async () => {
 
     for (const txn of unsettled) {
       try {
-        await walletRepository.creditCommission(txn.wallet, txn.commission);
         await rechargeTransactionRepository.markSettled(txn.txnId);
 
         cronLogger.info('Transaction settled', {

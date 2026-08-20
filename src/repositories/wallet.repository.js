@@ -51,18 +51,18 @@ class WalletRepository extends BaseRepository {
     return result;
   }
 
-  async creditCommission(walletId, amount, session = null) {
-    const query = Wallet.findOneAndUpdate(
-      { _id: walletId },
-      {
-        $inc: { balance: amount, totalCredited: amount, totalCommission: amount },
-        $set: { lastTransactionAt: new Date() },
-      },
-      { new: true },
-    );
-    if (session) query.session(session);
-    return query.lean();
-  }
+  // async creditCommission(walletId, amount, session = null) {
+  //   const query = Wallet.findOneAndUpdate(
+  //     { _id: walletId },
+  //     {
+  //       $inc: { balance: amount, totalCredited: amount, totalCommission: amount },
+  //       $set: { lastTransactionAt: new Date() },
+  //     },
+  //     { new: true },
+  //   );
+  //   if (session) query.session(session);
+  //   return query.lean();
+  // }
 
   async addPendingAmount(walletId, amount, session = null) {
     const query = Wallet.findOneAndUpdate(
