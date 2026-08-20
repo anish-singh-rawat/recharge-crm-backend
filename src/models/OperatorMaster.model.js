@@ -21,6 +21,11 @@ const operatorSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    realroboProviderCode: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     type: {
       type: String,
       enum: Object.values(RECHARGE_TYPE),

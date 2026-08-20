@@ -82,6 +82,11 @@ const rechargeTransactionSchema = new mongoose.Schema(
       trim: true,
       default: null,
     },
+    usedProvider: {
+      type: String,
+      enum: ['mrobotics', 'realrobo', null],
+      default: null,
+    },
     providerStatus: {
       type: String,
       default: null,

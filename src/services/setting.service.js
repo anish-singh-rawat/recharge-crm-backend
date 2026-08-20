@@ -1,6 +1,5 @@
 import { settingRepository } from '../repositories/setting.repository.js';
 import { buildListQuery } from '../helpers/query.helper.js';
-import { NotFoundError } from '../helpers/error.helper.js';
 import { auditLogRepository } from '../repositories/log.repository.js';
 import { AUDIT_ACTION, AUDIT_SEVERITY } from '../constants/audit.js';
 
@@ -19,9 +18,11 @@ export const settingService = {
   },
 
   async update(key, value, performedBy) {
-    const setting = await settingRepository.findByKey(key);
-    if (!setting) throw new NotFoundError(`Setting '${key}' not found`);
-    if (!setting.isEditable) throw new Error(`Setting '${key}' is not editable`);
+    const existing = await settingRepository.findByKey(key);
+
+    if (existing && !existing.isEditable) {
+      throw new Error(`Setting '${key}' is not editable`);
+    }
 
     const updated = await settingRepository.upsert(key, value, performedBy);
 
@@ -31,7 +32,7 @@ export const settingService = {
       severity: AUDIT_SEVERITY.MEDIUM,
       module: 'settings',
       description: `Setting '${key}' updated`,
-      previousValue: { value: setting.value },
+      previousValue: existing ? { value: existing.value } : null,
       newValue: { value },
     }).catch(() => {});
 

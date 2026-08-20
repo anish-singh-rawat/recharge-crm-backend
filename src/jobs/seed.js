@@ -54,6 +54,26 @@ const seedSettings = async () => {
     { key: 'app.maintenanceMode', value: false, displayName: 'Maintenance Mode', group: 'general', dataType: 'boolean', isPublic: true },
     { key: 'app.supportEmail', value: 'support@rechargecrmapp.com', displayName: 'Support Email', group: 'general', dataType: 'string', isPublic: true },
     { key: 'app.supportPhone', value: '1800-xxx-xxxx', displayName: 'Support Phone', group: 'general', dataType: 'string', isPublic: true },
+    {
+      key: 'recharge.provider.priority',
+      value: ['mrobotics'],
+      displayName: 'Recharge Provider Priority',
+      description: 'Ordered list of providers to try for each recharge. Options: mrobotics, realrobo. First entry is tried first; on failure the next is tried.',
+      group: 'recharge',
+      dataType: 'array',
+      isPublic: false,
+      isEditable: true,
+    },
+    {
+      key: 'recharge.realrobo.operatorCodes',
+      value: { AIRTEL: '1', JIO: '3', BSNL: '4', VI: '1' },
+      displayName: 'RealRobo Operator Codes',
+      description: 'Mapping of our operator code to RealRobo operator_id. Update when RealRobo confirms codes.',
+      group: 'recharge',
+      dataType: 'json',
+      isPublic: false,
+      isEditable: true,
+    },
   ];
 
   for (const setting of settings) {
@@ -88,11 +108,11 @@ const seedProvider = async () => {
 };
 
 const run = async () => {
-  await connectDB();
-  await seedRoles();
-  await seedSuperAdmin();
+  // await connectDB();
+  // await seedRoles();
+  // await seedSuperAdmin();
   await seedSettings();
-  await seedProvider();
+  // await seedProvider();
   logger.info('Seeding complete');
   process.exit(0);
 };

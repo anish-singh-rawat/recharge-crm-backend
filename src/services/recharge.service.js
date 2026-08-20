@@ -6,6 +6,7 @@ import { notificationRepository } from '../repositories/notification.repository.
 import { auditLogRepository } from '../repositories/log.repository.js';
 import { walletService } from './wallet.service.js';
 import { mroboticsProvider } from './providers/mrobotics/index.js';
+import { realroboProvider } from './providers/realrobo/index.js';
 import { generateTxnId, generateCorrelationId } from '../utils/id.util.js';
 import { buildListQuery } from '../helpers/query.helper.js';
 import { assertWalletCanDebit } from '../helpers/wallet.helper.js';
@@ -16,11 +17,116 @@ import { AUDIT_ACTION, AUDIT_SEVERITY } from '../constants/audit.js';
 import { NOTIFICATION_EVENT, NOTIFICATION_TYPE } from '../constants/notification.js';
 import { rechargeLogger } from '../config/logger.js';
 import env from '../config/env.js';
+import { Setting } from '../models/index.js';
 
-const OPERATOR_CODE_MAP = {
-  'JIO': '5', 'AIRTEL': '2', 'VI': '1', 'IDEA': '3', 'BSNL': '4',
-  'JIO_POST': '17', 'AIRTEL_POST': '2',
+const MROBOTICS_OPERATOR_CODE_MAP = {
+  JIO: '5', AIRTEL: '2', VI: '1', IDEA: '3', BSNL: '4',
+  JIO_POST: '17', AIRTEL_POST: '2',
 };
+
+const REALROBO_OPERATOR_CODE_MAP = {
+  AIRTEL: '1', BSNL: '4', VI: '1', IDEA: '3', JIO: '3',
+};
+
+async function getProviderPriority() {
+  try {
+    const setting = await Setting.findOne({ key: 'recharge.provider.priority' }).lean();
+    if (setting && Array.isArray(setting.value) && setting.value.length > 0) {
+      return setting.value;
+    }
+  } catch {
+  }
+  return ['mrobotics'];
+}
+
+async function getRealroboOperatorCodes() {
+  try {
+    const setting = await Setting.findOne({ key: 'recharge.realrobo.operatorCodes' }).lean();
+    if (setting && setting.value && typeof setting.value === 'object') {
+      return setting.value;
+    }
+  } catch {
+  }
+  return REALROBO_OPERATOR_CODE_MAP;
+}
+
+async function callProviderWithFallback({ mobileNumber, amount, operator, circle, txnId, correlationId, type }) {
+  const priority = await getProviderPriority();
+
+  const realroboCodesMap = await getRealroboOperatorCodes();
+
+  const mroboticsOperatorCode =
+    operator.providerCode ||
+    MROBOTICS_OPERATOR_CODE_MAP[operator.code?.toUpperCase()] ||
+    operator.code;
+
+  const realroboOperatorCode =
+    operator.realroboProviderCode ||
+    realroboCodesMap[operator.code?.toUpperCase()] ||
+    REALROBO_OPERATOR_CODE_MAP[operator.code?.toUpperCase()] ||
+    operator.code;
+
+  const circleCode = circle?.providerCode || circle?.code || '';
+
+  let lastError = null;
+
+  for (const providerName of priority) {
+    try {
+      rechargeLogger.info('Trying provider', { provider: providerName, txnId });
+
+      let result;
+
+      if (providerName === 'realrobo') {
+        if (!env.realrobo.apiToken) {
+          rechargeLogger.warn('RealRobo token not configured, skipping', { txnId });
+          continue;
+        }
+        result = await realroboProvider.recharge({
+          mobileNumber,
+          amount,
+          operatorCode: realroboOperatorCode,
+          circleCode,
+          txnId,
+          correlationId,
+        });
+      } else {
+        result = await mroboticsProvider.recharge({
+          mobileNumber,
+          amount,
+          operatorCode: mroboticsOperatorCode,
+          circleCode,
+          txnId,
+          correlationId,
+          type,
+        });
+      }
+
+      rechargeLogger.info('Provider responded', {
+        provider: providerName,
+        txnId,
+        status: result.status,
+      });
+
+      return { result, usedProvider: providerName };
+    } catch (err) {
+      const errMsg = typeof err.message === 'string'
+        ? err.message
+        : err.errorMessage || 'Provider error';
+
+      rechargeLogger.warn(`Provider ${providerName} failed, trying next`, {
+        txnId,
+        provider: providerName,
+        error: errMsg,
+      });
+
+      lastError = err;
+    }
+  }
+
+  const finalErr = lastError || new Error('All providers failed');
+  finalErr.isRetryable = false;
+  throw finalErr;
+}
 
 export const rechargeService = {
   async initiateRecharge({ mobileNumber, amount, operatorId, circleId, type }, user, requestMeta = {}) {
@@ -32,11 +138,6 @@ export const rechargeService = {
       circle = await circleRepository.findById(circleId);
       if (!circle || !circle.isActive) throw new RechargeError('Invalid or inactive circle');
     }
-
-    const resolvedOperatorCode =
-      operator.providerCode ||
-      OPERATOR_CODE_MAP[operator.code?.toUpperCase()] ||
-      operator.code;
 
     if (amount < operator.minAmount) throw new RechargeError(`Minimum recharge amount for this operator is ₹${operator.minAmount}`);
     if (amount > operator.maxAmount) throw new RechargeError(`Maximum recharge amount for this operator is ₹${operator.maxAmount}`);
@@ -52,7 +153,7 @@ export const rechargeService = {
     const commissionRate = user.commissionRate || env.wallet.commissionRate;
     const commission = parseFloat((amount * commissionRate).toFixed(2));
 
-    const txn = await rechargeTransactionRepository.create({
+    await rechargeTransactionRepository.create({
       txnId,
       correlationId,
       user: user._id,
@@ -91,22 +192,24 @@ export const rechargeService = {
     );
 
     let providerResult;
+    let usedProvider;
+
     try {
-      providerResult = await mroboticsProvider.recharge({
+      ({ result: providerResult, usedProvider } = await callProviderWithFallback({
         mobileNumber,
         amount,
-        operatorCode: resolvedOperatorCode,
-        circleCode: circle?.providerCode || circle?.code || '',
+        operator,
+        circle,
         txnId,
         correlationId,
         type,
-      });
+      }));
     } catch (providerErr) {
       const errMsg = typeof providerErr.message === 'string'
         ? providerErr.message
-        : providerErr.errorMessage || providerErr.rawResponse?.errorMessage || 'Recharge failed';
+        : 'Recharge failed';
 
-      rechargeLogger.error('Provider call failed', { txnId, error: errMsg });
+      rechargeLogger.error('All providers failed', { txnId, error: errMsg });
 
       const isRetryable = providerErr.isRetryable !== false;
       const nextRetryAt = isRetryable ? calcNextRetryAt(0) : null;
@@ -124,7 +227,6 @@ export const rechargeService = {
       );
 
       await walletService.refundFromRecharge(wallet._id, amount, txnId, user._id);
-
       await rechargeTransactionRepository.updateOne(
         { txnId },
         { $set: { refundAmount: amount } },
@@ -152,6 +254,7 @@ export const rechargeService = {
       operatorRef: providerResult.operatorRef,
       providerRequest: providerResult.rawRequest,
       providerResponse: providerResult.rawResponse,
+      usedProvider,
     });
 
     if (finalStatus === TRANSACTION_STATUS.FAILED) {
@@ -170,7 +273,7 @@ export const rechargeService = {
       action: isSuccess ? AUDIT_ACTION.RECHARGE_SUCCESS : AUDIT_ACTION.RECHARGE_FAILED,
       severity: AUDIT_SEVERITY.LOW,
       module: 'recharge',
-      description: `Recharge ${txnId}: ₹${amount} for ${mobileNumber} — ${finalStatus}`,
+      description: `Recharge ${txnId}: ₹${amount} for ${mobileNumber} via ${usedProvider} — ${finalStatus}`,
       referenceId: txnId,
     }).catch(() => {});
 
@@ -185,7 +288,7 @@ export const rechargeService = {
       referenceId: txnId,
     }).catch(() => {});
 
-    rechargeLogger.info('Recharge completed', { txnId, status: finalStatus });
+    rechargeLogger.info('Recharge completed', { txnId, status: finalStatus, usedProvider });
     return updatedTxn;
   },
 
@@ -198,7 +301,8 @@ export const rechargeService = {
 
     if ([TRANSACTION_STATUS.PENDING, TRANSACTION_STATUS.PROCESSING].includes(txn.status)) {
       try {
-        const statusResult = await mroboticsProvider.checkStatus(txnId);
+        const provider = txn.usedProvider === 'realrobo' ? realroboProvider : mroboticsProvider;
+        const statusResult = await provider.checkStatus(txnId);
         if (statusResult.status !== txn.status) {
           await rechargeTransactionRepository.updateStatus(txnId, statusResult.status, {
             providerStatus: statusResult.providerStatus,
@@ -250,11 +354,11 @@ export const rechargeService = {
     await walletService.debitForRecharge(wallet._id, txn.amount, txnId, txn.user);
 
     try {
-      const providerResult = await mroboticsProvider.recharge({
+      const { result: providerResult, usedProvider } = await callProviderWithFallback({
         mobileNumber: txn.mobileNumber,
         amount: txn.amount,
-        operatorCode: operator?.providerCode || operator?.code || '',
-        circleCode: circle?.providerCode || circle?.code || '',
+        operator,
+        circle,
         txnId,
         correlationId: txn.correlationId,
         type: txn.type,
@@ -266,6 +370,7 @@ export const rechargeService = {
         providerStatus: providerResult.providerStatus,
         providerMessage: providerResult.message,
         isRetryable: false,
+        usedProvider,
       });
 
       if (providerResult.status === TRANSACTION_STATUS.FAILED) {
@@ -278,7 +383,7 @@ export const rechargeService = {
         action: AUDIT_ACTION.RECHARGE_RETRY,
         severity: AUDIT_SEVERITY.MEDIUM,
         module: 'recharge',
-        description: `Recharge retry #${txn.retryCount + 1} for txnId ${txnId}`,
+        description: `Recharge retry #${txn.retryCount + 1} for txnId ${txnId} via ${usedProvider}`,
         referenceId: txnId,
       }).catch(() => {});
 

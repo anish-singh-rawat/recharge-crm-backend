@@ -82,6 +82,12 @@ const env = {
     retryCount: parseInt(process.env.MROBOTICS_RETRY_COUNT, 10) || 3,
     retryDelayMs: parseInt(process.env.MROBOTICS_RETRY_DELAY_MS, 10) || 1000,
   },
+  realrobo: {
+    baseUrl: process.env.REALROBO_BASE_URL || 'https://realrobo.in',
+    apiToken: process.env.REALROBO_API_TOKEN || '',
+    timeoutMs: parseInt(process.env.REALROBO_TIMEOUT_MS, 10) || 30000,
+    defaultStateId: process.env.REALROBO_DEFAULT_STATE_ID || '22',
+  },
   retry: {
     maxAttempts: parseInt(process.env.RETRY_MAX_ATTEMPTS, 10) || 3,
     initialDelayMs: parseInt(process.env.RETRY_INITIAL_DELAY_MS, 10) || 1000,
