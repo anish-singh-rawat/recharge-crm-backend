@@ -2,7 +2,6 @@ import axios from 'axios';
 import https from 'https';
 import env from '../../../config/env.js';
 import { providerLogger } from '../../../config/logger.js';
-import { ApiLog } from '../../../models/index.js';
 import { MRoboticsError, MRoboticsTimeoutError } from './errors.js';
 
 const BASE_URL = env.mrobotics.baseUrl;
@@ -138,18 +137,5 @@ export const mroboticsRequest = async ({
       rawResponse,
       statusCode,
     );
-  } finally {
-    ApiLog.create({
-      requestId: `MROBOTICS-${Date.now()}`,
-      correlationId,
-      method,
-      url: `${BASE_URL}${endpoint}`,
-      statusCode,
-      responseTime: Date.now() - startTime,
-      isError,
-      errorMessage,
-      provider: 'MROBOTICS',
-      providerEndpoint: endpoint,
-    }).catch(() => {});
   }
 };

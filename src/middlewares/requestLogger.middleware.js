@@ -1,7 +1,6 @@
 import { generateRequestId } from '../utils/id.util.js';
 import { maskSensitiveFields } from '../utils/sanitize.util.js';
 import logger from '../config/logger.js';
-import { ApiLog } from '../models/index.js';
 
 const SENSITIVE_FIELDS = ['password', 'confirmPassword', 'currentPassword', 'newPassword', 'token', 'refreshToken', 'apiKey', 'secret'];
 
@@ -45,30 +44,6 @@ export const requestResponseLogger = (req, res, next) => {
       ...logData,
       body: maskSensitiveFields(req.body || {}, SENSITIVE_FIELDS),
     });
-
-    if (isError || req.path.includes('/recharge') || req.path.includes('/wallet')) {
-      ApiLog.create({
-        requestId: req.requestId,
-        correlationId: req.correlationId,
-        user: req.user?._id || null,
-        method: req.method,
-        url: req.originalUrl,
-        statusCode: res.statusCode,
-        requestBody: maskSensitiveFields(req.body || {}, SENSITIVE_FIELDS),
-        responseBody: res._responseBody,
-        requestHeaders: {
-          'user-agent': req.headers['user-agent'],
-          'content-type': req.headers['content-type'],
-        },
-        responseTime,
-        ipAddress: req.ip || '',
-        userAgent: req.headers['user-agent'] || '',
-        isError,
-        errorMessage: isError ? (res._responseBody?.message || '') : '',
-      }).catch((err) =>
-        logger.error('Failed to save API log', { error: err.message }),
-      );
-    }
   });
 
   next();

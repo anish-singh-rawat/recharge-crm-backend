@@ -12,7 +12,6 @@ export { default as RechargeTransaction } from './RechargeTransaction.model.js';
 export { default as Notification } from './Notification.model.js';
 export { default as ActivityLog } from './ActivityLog.model.js';
 export { default as AuditLog } from './AuditLog.model.js';
-export { default as ApiLog } from './ApiLog.model.js';
 export { default as WebhookLog } from './WebhookLog.model.js';
 export { default as Setting } from './Setting.model.js';
 export { default as ApiKey } from './ApiKey.model.js';

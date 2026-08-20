@@ -1,4 +1,4 @@
-import { ActivityLog, AuditLog, ApiLog, WebhookLog } from '../models/index.js';
+import { ActivityLog, AuditLog, WebhookLog } from '../models/index.js';
 import { BaseRepository } from './base.repository.js';
 
 class ActivityLogRepository extends BaseRepository {
