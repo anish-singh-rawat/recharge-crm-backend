@@ -312,7 +312,7 @@ export const walletService = {
       exactFields: ['type', 'status'],
       dateField: 'createdAt',
     });
-    return walletTransactionRepository.findPaginated(filter, { ...pagination, sort });
+    return walletTransactionRepository.findPaginatedWithUser(filter, { ...pagination, sort });
   },
 
   async debitForRecharge(walletId, amount, txnId, userId, session = null) {

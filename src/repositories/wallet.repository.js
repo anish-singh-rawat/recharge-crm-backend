@@ -138,6 +138,20 @@ class WalletTransactionRepository extends BaseRepository {
     );
   }
 
+  async findPaginatedWithUser(filter = {}, { page = 1, limit = 20, skip = 0, sort = { createdAt: -1 } } = {}) {
+    const effectiveSkip = skip || (page - 1) * limit;
+    const [items, total] = await Promise.all([
+      WalletTransaction.find(filter)
+        .sort(sort)
+        .skip(effectiveSkip)
+        .limit(limit)
+        .populate({ path: 'user', select: 'name email phone role' })
+        .lean(),
+      WalletTransaction.countDocuments(filter),
+    ]);
+    return { items, total };
+  }
+
   async getWalletSummary(walletId, startDate, endDate) {
     const match = { wallet: new mongoose.Types.ObjectId(walletId) };
     if (startDate || endDate) {
