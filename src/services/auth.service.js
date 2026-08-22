@@ -323,6 +323,46 @@ export const authService = {
     return formatUser(user);
   },
 
+  async updateContact(userId, { phone, email }, requestedBy) {
+    const user = await userRepository.findById(userId);
+    if (!user) throw new NotFoundError('User not found');
+
+    const updates = {};
+
+    if (phone && phone !== user.phone) {
+      const existing = await userRepository.findByPhone(phone);
+      if (existing && existing._id.toString() !== userId) {
+        throw new ConflictError('Phone number is already in use');
+      }
+      updates.phone = phone;
+    }
+
+    if (email && email.toLowerCase() !== user.email.toLowerCase()) {
+      const existing = await userRepository.findByEmail(email.toLowerCase());
+      if (existing && existing._id.toString() !== userId) {
+        throw new ConflictError('Email address is already in use');
+      }
+      updates.email = email.toLowerCase();
+    }
+
+    if (!Object.keys(updates).length) {
+      throw new BusinessError('No changes detected');
+    }
+
+    const updated = await userRepository.updateById(userId, { $set: updates });
+
+    auditLogRepository.create({
+      performedBy: requestedBy,
+      targetUser: userId,
+      action: AUDIT_ACTION.USER_UPDATED,
+      severity: AUDIT_SEVERITY.MEDIUM,
+      module: 'auth',
+      description: `Contact details updated for ${user.email}: ${Object.keys(updates).join(', ')} changed`,
+    }).catch(() => {});
+
+    return formatUser(updated);
+  },
+
   async getSessions(userId) {
     return sessionRepository.findActiveSessions(userId);
   },

@@ -11,7 +11,11 @@ import {
   changePasswordValidator,
   refreshTokenValidator,
   updateProfileValidator,
+  updateContactValidator,
 } from '../validators/auth.validator.js';
+import { authorizeRoles } from '../middlewares/authorize.middleware.js';
+import { ROLES } from '../constants/roles.js';
+import { mongoIdParam } from '../validators/common.validator.js';
 
 const router = Router();
 
@@ -36,12 +40,20 @@ router.post('/logout-all', authController.logoutAll);
 
 router.get('/profile', authController.getProfile);
 router.put('/profile', updateProfileValidator, authController.updateProfile);
+router.patch('/profile/contact', updateContactValidator, authController.updateContact);
 router.patch('/profile/avatar', uploadMiddleware(uploadAvatar), authController.updateAvatar);
 
 router.post('/change-password', changePasswordValidator, authController.changePassword);
 
 router.get('/sessions', authController.getSessions);
-
 router.get('/login-history', authController.getLoginHistory);
+
+router.patch(
+  '/users/:userId/contact',
+  [mongoIdParam('userId')],
+  authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN),
+  updateContactValidator,
+  authController.updateContact,
+);
 
 export default router;

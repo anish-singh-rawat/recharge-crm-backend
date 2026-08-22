@@ -100,6 +100,13 @@ export const authController = {
     sendSuccess(res, { message: 'Profile updated successfully', data: { user } });
   }),
 
+  updateContact: asyncHandler(async (req, res) => {
+    const { phone, email } = req.body;
+    const targetId = req.params.userId || req.user.id;
+    const user = await authService.updateContact(targetId, { phone, email }, req.user.id);
+    sendSuccess(res, { message: 'Contact details updated successfully', data: { user } });
+  }),
+
   updateAvatar: asyncHandler(async (req, res) => {
     if (!req.file) {
       const { BusinessError } = await import('../helpers/error.helper.js');

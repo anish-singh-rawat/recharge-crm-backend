@@ -124,3 +124,24 @@ export const updateProfileValidator = [
     .withMessage('Pincode must be 6 digits'),
   validate,
 ];
+
+export const updateContactValidator = [
+  body('phone')
+    .optional()
+    .trim()
+    .matches(/^[6-9]\d{9}$/)
+    .withMessage('Enter a valid 10-digit Indian mobile number'),
+  body('email')
+    .optional()
+    .trim()
+    .isEmail()
+    .normalizeEmail()
+    .withMessage('Enter a valid email address'),
+  body().custom((_, { req }) => {
+    if (!req.body.phone && !req.body.email) {
+      throw new Error('Provide at least phone or email to update');
+    }
+    return true;
+  }),
+  validate,
+];
