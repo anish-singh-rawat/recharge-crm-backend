@@ -162,7 +162,11 @@ export const rechargeService = {
 
     const txnId = generateTxnId();
     const correlationId = generateCorrelationId();
-    const commissionRate = user.commissionRate || env.wallet.commissionRate;
+    const operatorCommissionEntry = user.operatorCommissions?.find(
+      (c) => c.operator?.toString() === operator._id.toString(),
+    );
+    const commissionRate =
+      operatorCommissionEntry?.rate ?? user.commissionRate ?? env.wallet.commissionRate;
     const commission = parseFloat((amount * commissionRate).toFixed(2));
 
     await rechargeTransactionRepository.create({

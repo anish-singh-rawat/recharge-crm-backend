@@ -47,6 +47,7 @@ export const authenticate = asyncHandler(async (req, res, next) => {
     permissions: user.permissions || [],
     wallet: user.wallet,
     commissionRate: user.commissionRate || 0,
+    operatorCommissions: user.operatorCommissions || [],
     apiAccessEnabled: user.apiAccessEnabled || false,
   };
 
@@ -80,6 +81,7 @@ export const optionalAuthenticate = asyncHandler(async (req, res, next) => {
         permissions: user.permissions || [],
         wallet: user.wallet,
         commissionRate: user.commissionRate || 0,
+        operatorCommissions: user.operatorCommissions || [],
       };
     }
   } catch {

@@ -207,6 +207,25 @@ const userSchema = new mongoose.Schema(
       max: 1,
     },
 
+    operatorCommissions: {
+      type: [
+        {
+          operator: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'OperatorMaster',
+            required: true,
+          },
+          rate: {
+            type: Number,
+            required: true,
+            min: 0,
+            max: 1,
+          },
+        },
+      ],
+      default: [],
+    },
+
     apiAccessEnabled: {
       type: Boolean,
       default: false,

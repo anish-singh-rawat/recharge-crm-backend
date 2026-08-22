@@ -73,4 +73,16 @@ export const userController = {
       data: { user: updated },
     });
   }),
+
+  updateOperatorCommissions: asyncHandler(async (req, res) => {
+    const { commissions } = req.body;
+    if (!Array.isArray(commissions)) {
+      return res.status(400).json({ success: false, message: '`commissions` must be an array' });
+    }
+    const updated = await userService.updateOperatorCommissions(req.params.id, commissions, req.user.id);
+    sendSuccess(res, {
+      message: `Operator-wise commissions updated (${commissions.length} operator(s))`,
+      data: { user: updated },
+    });
+  }),
 };

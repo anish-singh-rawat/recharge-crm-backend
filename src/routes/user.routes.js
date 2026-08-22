@@ -80,4 +80,11 @@ router.patch(
   userController.updateCommission,
 );
 
+router.patch(
+  '/:id/operator-commissions',
+  [mongoIdParam('id')],
+  authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN),
+  userController.updateOperatorCommissions,
+);
+
 export default router;

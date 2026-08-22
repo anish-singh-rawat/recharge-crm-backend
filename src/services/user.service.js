@@ -119,4 +119,36 @@ export const userService = {
     }).catch(() => {});
     return updated;
   },
+
+  async updateOperatorCommissions(targetId, commissions, performedBy) {
+    const user = await userRepository.findById(targetId);
+    if (!user) throw new NotFoundError('User not found');
+
+    for (const entry of commissions) {
+      const rate = parseFloat(entry.rate);
+      if (isNaN(rate) || rate < 0 || rate > 1) {
+        throw new Error(`Invalid commission rate "${entry.rate}" — must be between 0 and 1 (e.g. 0.05 = 5%)`);
+      }
+    }
+
+    const operatorCommissions = commissions.map((c) => ({
+      operator: c.operatorId,
+      rate: parseFloat(c.rate),
+    }));
+
+    const updated = await userRepository.updateById(targetId, {
+      $set: { operatorCommissions },
+    });
+
+    auditLogRepository.create({
+      performedBy,
+      targetUser: targetId,
+      action: AUDIT_ACTION.USER_UPDATED,
+      severity: AUDIT_SEVERITY.LOW,
+      module: 'user',
+      description: `Operator-wise commissions updated for ${user.email} (${commissions.length} operator(s))`,
+    }).catch(() => {});
+
+    return updated;
+  },
 };
