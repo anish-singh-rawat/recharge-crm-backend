@@ -89,9 +89,7 @@ export const userService = {
     const user = await userRepository.findById(targetId);
     if (!user) throw new NotFoundError('User not found');
 
-    await userRepository.updateById(targetId, {
-      $set: { isActive: false, email: `deleted_${Date.now()}_${user.email}` },
-    });
+    await userRepository.deleteById(targetId);
 
     auditLogRepository.create({
       performedBy,
@@ -99,7 +97,26 @@ export const userService = {
       action: AUDIT_ACTION.USER_DELETED,
       severity: AUDIT_SEVERITY.CRITICAL,
       module: 'user',
-      description: `User ${user.email} soft-deleted`,
+      description: `User ${user.email} permanently deleted`,
     }).catch(() => {});
+  },
+
+  async updateCommission(targetId, commissionRate, performedBy) {
+    const user = await userRepository.findById(targetId);
+    if (!user) throw new NotFoundError('User not found');
+    const rate = parseFloat(commissionRate);
+    if (isNaN(rate) || rate < 0 || rate > 1) {
+      throw new Error('Commission rate must be between 0 and 1 (e.g. 0.02 = 2%)');
+    }
+    const updated = await userRepository.updateById(targetId, { $set: { commissionRate: rate } });
+    auditLogRepository.create({
+      performedBy,
+      targetUser: targetId,
+      action: AUDIT_ACTION.USER_UPDATED,
+      severity: AUDIT_SEVERITY.LOW,
+      module: 'user',
+      description: `Commission rate updated to ${(rate * 100).toFixed(2)}% for ${user.email}`,
+    }).catch(() => {});
+    return updated;
   },
 };

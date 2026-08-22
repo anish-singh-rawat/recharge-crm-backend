@@ -63,4 +63,14 @@ export const userController = {
       data: { apiAccessEnabled: updated.apiAccessEnabled },
     });
   }),
+
+  updateCommission: asyncHandler(async (req, res) => {
+    const { commissionRate } = req.body;
+    const updated = await userService.updateCommission(req.params.id, commissionRate, req.user.id);
+    const rate = parseFloat(commissionRate);
+    sendSuccess(res, {
+      message: `Commission updated to ${(rate * 100).toFixed(2)}%`,
+      data: { user: updated },
+    });
+  }),
 };

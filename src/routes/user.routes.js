@@ -73,4 +73,11 @@ router.patch(
   userController.toggleApiAccess,
 );
 
+router.patch(
+  '/:id/commission',
+  [mongoIdParam('id')],
+  authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN),
+  userController.updateCommission,
+);
+
 export default router;
