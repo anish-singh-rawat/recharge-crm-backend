@@ -39,12 +39,13 @@ export const realroboMapperService = {
       status: internalStatus,
       providerStatus,
       providerTxnId: raw.txid?.toString() || null,
-      mroboticsRcId: raw.txid?.toString() || null,
+      mroboticsRcId: null,                               // BUG 4 fix: not applicable for RealRobo
       operatorRef: raw.req_id?.toString() || null,
       message: buildMessage(raw),
       balance: raw.lapu_balance ?? null,
       rawResponse: raw,
     };
+
   },
 
   mapStatusResponse(raw) {

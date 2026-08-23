@@ -38,12 +38,21 @@ const processWebhookPayload = async (webhookLog, normalised) => {
     operatorRef: operatorRef || txn.operatorRef,
   });
 
-  if (internalStatus === TRANSACTION_STATUS.FAILED && txn.status !== TRANSACTION_STATUS.FAILED) {
+  // BUG 3 fix: only refund if not already refunded inline by rechargeService
+  if (
+    internalStatus === TRANSACTION_STATUS.FAILED &&
+    txn.status !== TRANSACTION_STATUS.FAILED &&
+    !(txn.refundAmount > 0)
+  ) {
     const wallet = await walletRepository.findByUserId(txn.user.toString());
     if (wallet) {
       await walletService.refundFromRecharge(wallet._id, txn.amount, txn.txnId, txn.user);
+      await rechargeTransactionRepository.updateStatus(txn.txnId, TRANSACTION_STATUS.FAILED, {
+        refundAmount: txn.amount,
+      });
     }
   }
+
 
   const isSuccess = internalStatus === TRANSACTION_STATUS.SUCCESS;
   notificationRepository.create({

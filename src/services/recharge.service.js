@@ -195,7 +195,7 @@ export const rechargeService = {
       status: TRANSACTION_STATUS.INITIATED,
       commissionRate,
       commission,
-      netAmount: amount - commission,
+      netAmount: amount,        // actual recharge value delivered — commission is earned, not deducted
       maxRetries: env.retry.maxAttempts,
       ipAddress: requestMeta.ipAddress || '',
       userAgent: requestMeta.userAgent || '',
@@ -286,7 +286,8 @@ export const rechargeService = {
       usedProvider,
     });
 
-    if (finalStatus === TRANSACTION_STATUS.FAILED) {
+    if (finalStatus === TRANSACTION_STATUS.FAILED && !updatedTxn?.refundAmount) {
+      // BUG 3 guard: only refund if not already refunded (double-refund protection)
       await walletService.refundFromRecharge(wallet._id, amount, txnId, user._id);
       await rechargeTransactionRepository.updateOne(
         { txnId },

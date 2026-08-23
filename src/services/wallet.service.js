@@ -7,7 +7,7 @@ import { auditLogRepository } from '../repositories/log.repository.js';
 import { generateWalletTxnId } from '../utils/id.util.js';
 import { buildListQuery } from '../helpers/query.helper.js';
 import { assertWalletCanDebit, assertWalletCanCredit } from '../helpers/wallet.helper.js';
-import { NotFoundError, WalletError } from '../helpers/error.helper.js';
+import { NotFoundError, WalletError, DatabaseError } from '../helpers/error.helper.js';
 import { WALLET_TRANSACTION_TYPE } from '../constants/wallet.js';
 import { AUDIT_ACTION, AUDIT_SEVERITY } from '../constants/audit.js';
 import { NOTIFICATION_EVENT, NOTIFICATION_TYPE } from '../constants/notification.js';
@@ -316,10 +316,23 @@ export const walletService = {
   },
 
   async debitForRecharge(walletId, amount, txnId, userId, session = null) {
-    const wallet = await walletRepository.model.findById(walletId);
-    assertWalletCanDebit(wallet, amount);
+    // BUG 1 fix: capture balanceBefore atomically using findOneAndUpdate with {new: false}
+    // This avoids the stale-read race condition between findById and debitBalance
+    const preUpdateWallet = await walletRepository.model.findOneAndUpdate(
+      { _id: walletId, balance: { $gte: amount }, status: 'ACTIVE' },
+      {
+        $inc: { balance: -amount, totalDebited: amount },
+        $set: { lastTransactionAt: new Date() },
+      },
+      { new: false, runValidators: true, ...(session ? { session } : {}) },
+    ).lean();
 
-    const updatedWallet = await walletRepository.debitBalance(walletId, amount, session);
+    if (!preUpdateWallet) {
+      throw new DatabaseError('Wallet debit failed: insufficient balance or wallet inactive');
+    }
+
+    const balanceBefore = preUpdateWallet.balance;
+    const balanceAfter = parseFloat((balanceBefore - amount).toFixed(2));
     const walletTxnId = generateWalletTxnId();
 
     const walletTxn = await walletTransactionRepository.create({
@@ -328,19 +341,35 @@ export const walletService = {
       txnId: walletTxnId,
       type: WALLET_TRANSACTION_TYPE.DEBIT,
       amount,
-      balanceBefore: wallet.balance,
-      balanceAfter: updatedWallet.balance,
+      balanceBefore,
+      balanceAfter,
       description: 'Recharge debit',
       referenceId: txnId,
       referenceType: 'RECHARGE',
     });
 
+    // Return a compatible shape with the old updatedWallet
+    const updatedWallet = { ...preUpdateWallet, balance: balanceAfter };
     return { updatedWallet, walletTxn };
   },
 
   async refundFromRecharge(walletId, amount, txnId, userId) {
-    const wallet = await walletRepository.model.findById(walletId);
-    const updatedWallet = await walletRepository.creditBalance(walletId, amount);
+    // BUG 1 fix: capture balanceBefore atomically using findOneAndUpdate with {new: false}
+    const preUpdateWallet = await walletRepository.model.findOneAndUpdate(
+      { _id: walletId },
+      {
+        $inc: { balance: amount, totalCredited: amount },
+        $set: { lastTransactionAt: new Date() },
+      },
+      { new: false },
+    ).lean();
+
+    if (!preUpdateWallet) {
+      throw new Error('Wallet not found for refund');
+    }
+
+    const balanceBefore = preUpdateWallet.balance;
+    const balanceAfter = parseFloat((balanceBefore + amount).toFixed(2));
     const walletTxnId = generateWalletTxnId();
 
     await walletTransactionRepository.create({
@@ -349,13 +378,13 @@ export const walletService = {
       txnId: walletTxnId,
       type: WALLET_TRANSACTION_TYPE.REFUND,
       amount,
-      balanceBefore: wallet.balance,
-      balanceAfter: updatedWallet.balance,
+      balanceBefore,
+      balanceAfter,
       description: 'Recharge refund',
       referenceId: txnId,
       referenceType: 'RECHARGE',
     });
 
-    return updatedWallet;
+    return { ...preUpdateWallet, balance: balanceAfter };
   },
 };
