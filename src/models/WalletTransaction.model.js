@@ -84,6 +84,7 @@ const walletTransactionSchema = new mongoose.Schema(
 
 walletTransactionSchema.index({ wallet: 1, createdAt: -1 });
 walletTransactionSchema.index({ user: 1, createdAt: -1 });
+walletTransactionSchema.index({ user: 1, type: 1, referenceType: 1 });
 walletTransactionSchema.index({ referenceId: 1 });
 walletTransactionSchema.index({ type: 1, status: 1 });
 walletTransactionSchema.index({ createdAt: -1 });

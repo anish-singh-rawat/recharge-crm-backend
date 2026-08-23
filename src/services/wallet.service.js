@@ -239,61 +239,77 @@ export const walletService = {
   },
 
   async withdrawCommission(userId) {
-    const commissionData = await this.getMyCommission(userId);
+    const lockResult = await walletRepository.model.findOneAndUpdate(
+      { user: userId, withdrawalProcessing: { $ne: true } },
+      { $set: { withdrawalProcessing: true } },
+      { new: true },
+    ).lean();
 
-    if (commissionData.available <= 0) {
-      throw new WalletError('No commission available to withdraw');
+    if (!lockResult) {
+      throw new WalletError('A commission withdrawal is already in progress. Please try again in a moment.');
     }
-
-    const wallet = await walletRepository.findByUserId(userId);
-    if (!wallet) throw new NotFoundError('Wallet not found');
-
-    assertWalletCanCredit(wallet, commissionData.available);
-
-    const amount = commissionData.available;
-
-    const session = await mongoose.startSession();
-    session.startTransaction();
 
     try {
-      const updatedWallet = await walletRepository.creditBalance(wallet._id, amount, session);
-      const txnId = generateWalletTxnId();
+      const commissionData = await this.getMyCommission(userId);
 
-      const txn = await walletTransactionRepository.create({
-        wallet: wallet._id,
-        user: userId,
-        txnId,
-        type: WALLET_TRANSACTION_TYPE.COMMISSION,
-        amount,
-        balanceBefore: wallet.balance,
-        balanceAfter: updatedWallet.balance,
-        description: `Commission withdrawal — ₹${amount.toFixed(2)}`,
-        referenceType: 'COMMISSION_WITHDRAWAL',
-        performedBy: userId,
-      });
+      if (commissionData.available <= 0) {
+        throw new WalletError('No commission available to withdraw');
+      }
 
-      await session.commitTransaction();
+      const wallet = await walletRepository.findByUserId(userId);
+      if (!wallet) throw new NotFoundError('Wallet not found');
 
-      notificationRepository.create({
-        user: userId,
-        title: 'Commission Withdrawn',
-        message: `₹${amount.toFixed(2)} commission has been added to your wallet.`,
-        type: NOTIFICATION_TYPE.SUCCESS,
-        event: NOTIFICATION_EVENT.WALLET_CREDITED,
-        referenceId: txnId,
-        referenceType: 'WalletTransaction',
-      }).catch(() => {});
+      assertWalletCanCredit(wallet, commissionData.available);
 
-      walletLogger.info('Commission withdrawn', { userId, amount, txnId });
+      const amount = commissionData.available;
+      const session = await mongoose.startSession();
+      session.startTransaction();
 
-      return { amount, wallet: updatedWallet, transaction: txn };
-    } catch (err) {
-      await session.abortTransaction();
-      throw err;
+      try {
+        const updatedWallet = await walletRepository.creditBalance(wallet._id, amount, session);
+        const txnId = generateWalletTxnId();
+
+        const txn = await walletTransactionRepository.create({
+          wallet: wallet._id,
+          user: userId,
+          txnId,
+          type: WALLET_TRANSACTION_TYPE.COMMISSION,
+          amount,
+          balanceBefore: wallet.balance,
+          balanceAfter: updatedWallet.balance,
+          description: `Commission withdrawal — ₹${amount.toFixed(2)}`,
+          referenceType: 'COMMISSION_WITHDRAWAL',
+          performedBy: userId,
+        });
+
+        await session.commitTransaction();
+
+        notificationRepository.create({
+          user: userId,
+          title: 'Commission Withdrawn',
+          message: `₹${amount.toFixed(2)} commission has been added to your wallet.`,
+          type: NOTIFICATION_TYPE.SUCCESS,
+          event: NOTIFICATION_EVENT.WALLET_CREDITED,
+          referenceId: txnId,
+          referenceType: 'WalletTransaction',
+        }).catch(() => {});
+
+        walletLogger.info('Commission withdrawn', { userId, amount, txnId });
+        return { amount, wallet: updatedWallet, transaction: txn };
+      } catch (err) {
+        await session.abortTransaction();
+        throw err;
+      } finally {
+        session.endSession();
+      }
     } finally {
-      session.endSession();
+      await walletRepository.model.findOneAndUpdate(
+        { user: userId },
+        { $unset: { withdrawalProcessing: 1 } },
+      ).catch(() => {});
     }
   },
+
 
   async getStatement(userId, query) {
     const { filter, pagination, sort } = buildListQuery(query, {
@@ -316,8 +332,7 @@ export const walletService = {
   },
 
   async debitForRecharge(walletId, amount, txnId, userId, session = null) {
-    // BUG 1 fix: capture balanceBefore atomically using findOneAndUpdate with {new: false}
-    // This avoids the stale-read race condition between findById and debitBalance
+  
     const preUpdateWallet = await walletRepository.model.findOneAndUpdate(
       { _id: walletId, balance: { $gte: amount }, status: 'ACTIVE' },
       {

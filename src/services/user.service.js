@@ -1,5 +1,8 @@
 import { userRepository } from '../repositories/user.repository.js';
 import { auditLogRepository } from '../repositories/log.repository.js';
+import { sessionRepository } from '../repositories/session.repository.js';
+import { walletRepository } from '../repositories/wallet.repository.js';
+import { apiKeyRepository } from '../repositories/apiKey.repository.js';
 import { buildListQuery } from '../helpers/query.helper.js';
 import { NotFoundError, ConflictError } from '../helpers/error.helper.js';
 import { formatUser } from '../helpers/user.helper.js';
@@ -86,20 +89,42 @@ export const userService = {
   },
 
   async deleteUser(targetId, performedBy) {
-    const user = await userRepository.findById(targetId);
-    if (!user) throw new NotFoundError('User not found');
+  const user = await userRepository.findById(targetId);
+  if (!user) throw new NotFoundError('User not found');
 
-    await userRepository.deleteById(targetId);
+  await userRepository.deleteById(targetId);
 
-    auditLogRepository.create({
-      performedBy,
-      targetUser: targetId,
-      action: AUDIT_ACTION.USER_DELETED,
-      severity: AUDIT_SEVERITY.CRITICAL,
-      module: 'user',
-      description: `User ${user.email} permanently deleted`,
-    }).catch(() => {});
-  },
+  await sessionRepository.model.deleteMany({
+    user: targetId,
+  });
+
+  await apiKeyRepository.model.deleteMany({
+    user: targetId,
+  });
+
+  await walletRepository.model.deleteMany({
+    user: targetId,
+  });
+
+  await notificationRepository.model.deleteMany({
+    user: targetId,
+  });
+
+  await rechargeRepository.model.deleteMany({
+    user: targetId,
+  });
+
+  await userRepository.model.findByIdAndDelete(targetId);
+
+  await auditLogRepository.create({
+    performedBy,
+    targetUser: targetId,
+    action: AUDIT_ACTION.USER_DELETED,
+    severity: AUDIT_SEVERITY.CRITICAL,
+    module: 'user',
+    description: `User ${user.email} permanently deleted with all related data`,
+  }).catch(() => {});
+},
 
   async updateCommission(targetId, commissionRate, performedBy) {
     const user = await userRepository.findById(targetId);

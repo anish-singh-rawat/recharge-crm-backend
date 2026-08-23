@@ -434,18 +434,19 @@ export const rechargeService = {
     }
   },
 
-  async refund(txnId, reason, performedBy) {
+  async refund(txnId, reason, performedBy, { forceRefundSuccess = false } = {}) {
     const txn = await rechargeTransactionRepository.findByTxnId(txnId);
     if (!txn) throw new NotFoundError('Transaction not found');
 
-    assertRefundable(txn);
+    assertRefundable(txn, { forceRefundSuccess });
 
     const wallet = await walletRepository.findByUserId(txn.user.toString());
-    await walletService.refundFromRecharge(wallet._id, txn.amount, txnId, txn.user);
+    await walletService.refundFromRecharge(wallet._id, txn.amount, txn.txnId || txnId, txn.user);
 
-    const updated = await rechargeTransactionRepository.updateStatus(txnId, TRANSACTION_STATUS.REFUNDED, {
+    const updated = await rechargeTransactionRepository.updateStatus(txn.txnId || txnId, TRANSACTION_STATUS.REFUNDED, {
       refundAmount: txn.amount,
     });
+
 
     auditLogRepository.create({
       performedBy,

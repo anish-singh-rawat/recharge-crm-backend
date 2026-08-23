@@ -62,10 +62,6 @@ const walletSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
-    __v: {
-      type: Number,
-      default: 0,
-    },
   },
   {
     timestamps: true,

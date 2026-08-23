@@ -59,7 +59,10 @@ export const rechargeController = {
   }),
 
   refundRecharge: asyncHandler(async (req, res) => {
-    const txn = await rechargeService.refund(req.params.txnId, req.body.reason, req.user.id);
+    const txn = await rechargeService.refund(req.params.txnId, req.body.reason, req.user.id, {
+      forceRefundSuccess: req.body.forceRefundSuccess === true,
+    });
     sendSuccess(res, { message: 'Recharge refunded successfully', data: { transaction: txn } });
   }),
 };
+

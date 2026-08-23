@@ -9,11 +9,19 @@ class RechargeTransactionRepository extends BaseRepository {
   }
 
   async findByTxnId(txnId) {
-    return RechargeTransaction.findOne({ txnId }).lean();
+    if (!txnId) return null;
+    const query = mongoose.Types.ObjectId.isValid(String(txnId)) && String(txnId).length === 24
+      ? { $or: [{ txnId: String(txnId) }, { _id: txnId }] }
+      : { txnId: String(txnId) };
+    return RechargeTransaction.findOne(query).lean();
   }
 
   async findByTxnIdFull(txnId) {
-    return RechargeTransaction.findOne({ txnId })
+    if (!txnId) return null;
+    const query = mongoose.Types.ObjectId.isValid(String(txnId)) && String(txnId).length === 24
+      ? { $or: [{ txnId: String(txnId) }, { _id: txnId }] }
+      : { txnId: String(txnId) };
+    return RechargeTransaction.findOne(query)
       .select('+providerRequest +providerResponse')
       .populate('operator', 'name code type')
       .populate('circle', 'name code')
@@ -44,16 +52,20 @@ class RechargeTransactionRepository extends BaseRepository {
       ...paginationOptions,
       sort: paginationOptions.sort || { createdAt: -1 },
       populate: [
-        { path: 'user', select: 'name email phone' },
-        { path: 'operator', select: 'name code type' },
+        { path: 'user', select: 'name email phone businessName' },
+        { path: 'operator', select: 'name code type logo' },
         { path: 'circle', select: 'name code' },
       ],
     });
   }
 
   async updateStatus(txnId, status, updateData = {}) {
+    if (!txnId) return null;
+    const query = mongoose.Types.ObjectId.isValid(String(txnId)) && String(txnId).length === 24
+      ? { $or: [{ txnId: String(txnId) }, { _id: txnId }] }
+      : { txnId: String(txnId) };
     return RechargeTransaction.findOneAndUpdate(
-      { txnId },
+      query,
       {
         $set: {
           status,
@@ -186,16 +198,24 @@ class RechargeTransactionRepository extends BaseRepository {
             day: { $dayOfMonth: '$createdAt' },
           },
           count: { $sum: 1 },
-          amount: { $sum: '$amount' },
-          commission: { $sum: '$commission' },
+          amount: {
+            $sum: { $cond: [{ $eq: ['$status', 'SUCCESS'] }, '$amount', 0] },
+          },
+          commission: {
+            $sum: { $cond: [{ $eq: ['$status', 'SUCCESS'] }, '$commission', 0] },
+          },
           successCount: {
             $sum: { $cond: [{ $eq: ['$status', 'SUCCESS'] }, 1, 0] },
+          },
+          failedCount: {
+            $sum: { $cond: [{ $eq: ['$status', 'FAILED'] }, 1, 0] },
           },
         },
       },
       { $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 } },
     ]);
   }
+
 
   async getSalesByOperator(filter = {}) {
     return RechargeTransaction.aggregate([

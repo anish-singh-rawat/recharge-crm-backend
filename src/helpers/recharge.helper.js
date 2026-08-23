@@ -14,15 +14,30 @@ export const assertRetryable = (txn) => {
   }
 };
 
-export const assertRefundable = (txn) => {
+export const assertRefundable = (txn, { forceRefundSuccess = false } = {}) => {
   if (!txn) throw new RechargeError('Transaction not found');
-  if (txn.status !== TRANSACTION_STATUS.FAILED && txn.status !== TRANSACTION_STATUS.SUCCESS) {
-    throw new RechargeError(`Only FAILED or SUCCESS transactions can be refunded. Current status: ${txn.status}`);
+
+  if (txn.status === TRANSACTION_STATUS.SUCCESS && !forceRefundSuccess) {
+    throw new RechargeError(
+      'Cannot refund a successful recharge without explicit confirmation. ' +
+      'Pass forceRefundSuccess=true to override (admin only).',
+    );
   }
+
+  if (
+    txn.status !== TRANSACTION_STATUS.FAILED &&
+    txn.status !== TRANSACTION_STATUS.SUCCESS
+  ) {
+    throw new RechargeError(
+      `Only FAILED or SUCCESS transactions can be refunded. Current status: ${txn.status}`,
+    );
+  }
+
   if (txn.refundAmount > 0) {
     throw new RechargeError('Transaction has already been refunded');
   }
 };
+
 
 export const isProviderSuccess = (providerStatus, successCodes = ['1', 'SUCCESS', 'success', 'TXN_SUCCESS']) =>
   successCodes.includes(String(providerStatus));

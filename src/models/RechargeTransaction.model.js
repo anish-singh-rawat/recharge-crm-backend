@@ -40,11 +40,6 @@ const rechargeTransactionSchema = new mongoose.Schema(
       ref: 'CircleMaster',
       default: null,
     },
-    provider: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'RechargeProvider',
-      default: null,
-    },
 
     mobileNumber: {
       type: String,
@@ -205,6 +200,7 @@ const rechargeTransactionSchema = new mongoose.Schema(
 );
 
 rechargeTransactionSchema.index({ user: 1, createdAt: -1 });
+rechargeTransactionSchema.index({ user: 1, status: 1, commission: 1 });
 rechargeTransactionSchema.index({ mobileNumber: 1, createdAt: -1 });
 rechargeTransactionSchema.index({ status: 1, createdAt: -1 });
 rechargeTransactionSchema.index({ providerTxnId: 1 });

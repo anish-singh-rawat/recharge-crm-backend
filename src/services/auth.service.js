@@ -184,6 +184,8 @@ export const authService = {
       phone: user.phone,
       role: user.role,
       wallet: user.wallet,
+      businessName: user.businessName || '',
+      commissionRate: user.commissionRate ?? 0, 
       lastLoginAt: user.lastLoginAt,
       apiAccessEnabled: user.apiAccessEnabled || false,
     };
