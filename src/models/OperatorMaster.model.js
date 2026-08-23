@@ -26,6 +26,16 @@ const operatorSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    primaryProvider: {
+      type: String,
+      enum: ['mrobotics', 'realrobo', null],
+      default: null, // null = inherit from global setting
+    },
+    secondaryProvider: {
+      type: String,
+      enum: ['mrobotics', 'realrobo', null],
+      default: null, // null = inherit from global setting
+    },
     type: {
       type: String,
       enum: Object.values(RECHARGE_TYPE),

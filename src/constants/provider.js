@@ -6,6 +6,7 @@ export const PROVIDER_STATUS = Object.freeze({
 
 export const PROVIDER_CODES = Object.freeze({
   MROBOTICS: 'MROBOTICS',
+  REALROBO: 'REALROBO',
 });
 
 export const MROBOTICS_STATUS = Object.freeze({

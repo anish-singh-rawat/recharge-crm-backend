@@ -25,8 +25,9 @@ const MROBOTICS_OPERATOR_CODE_MAP = {
 };
 
 const REALROBO_OPERATOR_CODE_MAP = {
-  AIRTEL: '1', BSNL: '4', VI: '1', IDEA: '3', JIO: '3',
+  AIRTEL: '1', BSNL: '2', JIO: '3', VI: '4', IDEA: '4',
 };
+
 
 async function getProviderPriority() {
   try {
@@ -51,7 +52,19 @@ async function getRealroboOperatorCodes() {
 }
 
 async function callProviderWithFallback({ mobileNumber, amount, operator, circle, txnId, correlationId, type }) {
-  const priority = await getProviderPriority();
+  // --- Per-operator routing ---
+  // If operator has explicit primaryProvider set, build priority from that.
+  // Otherwise fall back to the global setting.
+  let priority;
+
+  if (operator.primaryProvider) {
+    priority = [operator.primaryProvider];
+    if (operator.secondaryProvider && operator.secondaryProvider !== operator.primaryProvider) {
+      priority.push(operator.secondaryProvider);
+    }
+  } else {
+    priority = await getProviderPriority();
+  }
 
   const realroboCodesMap = await getRealroboOperatorCodes();
 

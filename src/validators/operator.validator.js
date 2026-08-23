@@ -47,10 +47,19 @@ export const updateOperatorValidator = [
   mongoIdParam('id'),
   body('name').optional().trim().isLength({ max: 100 }),
   body('providerCode').optional().trim().isLength({ max: 50 }),
+  body('realroboProviderCode').optional().trim().isLength({ max: 50 }),
   body('minAmount').optional().isFloat({ min: 0 }).toFloat(),
   body('maxAmount').optional().isFloat({ min: 0 }).toFloat(),
   body('commission').optional().isFloat({ min: 0, max: 100 }).toFloat(),
   body('isActive').optional().isBoolean().toBoolean(),
+  body('primaryProvider')
+    .optional({ nullable: true })
+    .isIn(['mrobotics', 'realrobo', null])
+    .withMessage('primaryProvider must be mrobotics, realrobo, or null'),
+  body('secondaryProvider')
+    .optional({ nullable: true })
+    .isIn(['mrobotics', 'realrobo', null])
+    .withMessage('secondaryProvider must be mrobotics, realrobo, or null'),
   validate,
 ];
 
