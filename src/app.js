@@ -16,6 +16,7 @@ import { generalRateLimiter } from './middlewares/rateLimiter.middleware.js';
 import { notFoundHandler, globalErrorHandler } from './middlewares/errorHandler.middleware.js';
 import { xssMiddleware } from './middlewares/xss.middleware.js';
 import { maintenanceMiddleware } from './middlewares/maintenance.middleware.js';
+import { normalizeHeaders } from './middlewares/normalizeHeaders.middleware.js';
 import apiRoutes from './routes/index.js';
 import webhookRouter from './handlers/webhook.handler.js';
 
@@ -76,6 +77,7 @@ if (env.swagger.enabled) {
   app.get('/api-docs.json', (req, res) => res.json(swaggerSpec));
 }
 
+app.use('/api/v1/ext', normalizeHeaders);
 app.use('/api/v1', apiRoutes);
 
 app.use('/uploads', express.static(path.resolve(__dirname, '..', env.upload.dir)));
