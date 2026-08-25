@@ -19,12 +19,12 @@ export const initiateRechargeValidator = [
     .isMongoId()
     .withMessage('Invalid operator ID'),
   body('circleId')
-    .optional()
+    .optional({ checkFalsy: true })
     .isMongoId()
     .withMessage('Invalid circle ID'),
   body('type')
-    .notEmpty()
-    .withMessage('Recharge type is required')
+    .optional({ checkFalsy: true })
+    .customSanitizer(val => val || RECHARGE_TYPE.MOBILE_PREPAID)
     .isIn(Object.values(RECHARGE_TYPE))
     .withMessage(`type must be one of: ${Object.values(RECHARGE_TYPE).join(', ')}`),
   validate,

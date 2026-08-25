@@ -5,7 +5,21 @@ import { AuthenticationError, AuthorizationError } from '../helpers/error.helper
 import { asyncHandler } from '../utils/async.util.js';
 
 export const authenticateApiKey = asyncHandler(async (req, res, next) => {
-  const raw = req.headers['x-api-key'];
+  const raw =
+    req.headers['x-api-key'] ||
+    req.headers['apikey'] ||
+    req.headers['api-key'] ||
+    req.query?.['x-api-key'] ||
+    req.query?.['X-Api-Key'] ||
+    req.query?.apiKey ||
+    req.query?.api_key ||
+    req.query?.key ||
+    req.query?.token ||
+    req.body?.['x-api-key'] ||
+    req.body?.['X-Api-Key'] ||
+    req.body?.apiKey ||
+    req.body?.api_key;
+
   if (!raw) throw new AuthenticationError('API key is required. Pass it in the X-Api-Key header.');
 
   const keyHash = sha256Hash(raw);

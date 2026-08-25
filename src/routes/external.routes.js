@@ -18,8 +18,59 @@ const router = Router();
 router.use(authenticateApiKey);
 router.use(requireApiAccess);
 
+// Middleware to normalize payload for external recharge calls
+const normalizeRechargePayload = (req, res, next) => {
+  req.body = { ...(req.query || {}), ...(req.body || {}) };
+
+  const mobile = req.body.mobileNumber || req.body.mobile || req.body.number || req.body.phone;
+  if (mobile) req.body.mobileNumber = String(mobile).trim();
+
+  const amount = req.body.amount ?? req.body.amt;
+  if (amount !== undefined && amount !== null && amount !== '') req.body.amount = Number(amount);
+
+  const op = req.body.operatorId || req.body.operator || req.body.op;
+  if (op) req.body.operatorId = String(op).trim();
+
+  const circle = req.body.circleId || req.body.circle || req.body.state;
+  if (circle) req.body.circleId = String(circle).trim();
+
+  if (!req.body.type) {
+    req.body.type = 'MOBILE_PREPAID';
+  }
+
+  next();
+};
+
+const handleGetRecharge = (req, res, next) => {
+  const hasRechargeFields =
+    req.query?.mobileNumber ||
+    req.query?.mobile ||
+    req.query?.number ||
+    req.query?.phone ||
+    req.body?.mobileNumber ||
+    req.query?.amount ||
+    req.body?.amount;
+
+  if (hasRechargeFields) {
+    return rechargeRateLimiter(req, res, () => {
+      authorizePermissions(PERMISSIONS.RECHARGE_INITIATE)(req, res, () => {
+        initiateRechargeValidator(req, res, () => {
+          rechargeController.initiateRecharge(req, res, next);
+        });
+      });
+    });
+  }
+
+  return authorizePermissions(PERMISSIONS.RECHARGE_LIST)(req, res, () => {
+    rechargeListValidator(req, res, () => {
+      rechargeController.getMyTransactions(req, res, next);
+    });
+  });
+};
+
 router.post(
   '/recharge',
+  normalizeRechargePayload,
   rechargeRateLimiter,
   authorizePermissions(PERMISSIONS.RECHARGE_INITIATE),
   initiateRechargeValidator,
@@ -28,9 +79,8 @@ router.post(
 
 router.get(
   '/recharge',
-  authorizePermissions(PERMISSIONS.RECHARGE_LIST),
-  rechargeListValidator,
-  rechargeController.getMyTransactions,
+  normalizeRechargePayload,
+  handleGetRecharge,
 );
 
 router.get(

@@ -100,6 +100,24 @@ test('Direct JSON object (not wrapped in array) — ?{"X-Api-Key":"crm_obj"}', (
   assert(extractedHeaders['X-Api-Key'] === 'crm_obj', 'X-Api-Key should be extracted');
 });
 
+test('User format — raw un-comma JSON in query string with recharge payload', () => {
+  const raw = `${BASE}?{ "X-Api-Key": "crm_e95b5dd1daae531d36a06ef8d29936840d585b2a90401f46", "Content-Type": "application/json" "mobileNumber": "8288880000", "amount": 10, "operatorId": "6a6f8d11d8fcb29986f98350", "circleId": "6a6f8d11d8fcb29986f98338", "type": "MOBILE_PREPAID" }`;
+  const { cleanUrl, extractedHeaders, extractedParams } = parseHeadersFromUrl(raw);
+  assert(cleanUrl === BASE, 'URL should be cleaned');
+  assert(extractedHeaders['X-Api-Key'] === 'crm_e95b5dd1daae531d36a06ef8d29936840d585b2a90401f46', 'X-Api-Key should be extracted');
+  assert(extractedParams.mobileNumber === '8288880000', 'mobileNumber should be extracted');
+  assert(extractedParams.amount === 10, 'amount should be extracted');
+  assert(extractedParams.operatorId === '6a6f8d11d8fcb29986f98350', 'operatorId should be extracted');
+});
+
+test('Standard GET Query Params — ?apiKey=...&mobileNumber=...&amount=10', () => {
+  const raw = `${BASE}?apiKey=crm_test123&mobileNumber=8288880000&amount=10&operatorId=6a6f8d11d8fcb29986f98350`;
+  const { extractedHeaders, extractedParams } = parseHeadersFromUrl(raw);
+  assert(extractedHeaders['X-Api-Key'] === 'crm_test123', 'apiKey param should be converted to X-Api-Key header');
+  assert(extractedParams.mobileNumber === '8288880000', 'mobileNumber should be extracted');
+  assert(extractedParams.amount === 10, 'amount should be extracted');
+});
+
 console.log(`\n══════════════════════════════════════`);
 console.log(`  ${passed} passed  |  ${failed} failed`);
 console.log(`══════════════════════════════════════\n`);

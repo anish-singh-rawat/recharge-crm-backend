@@ -1,25 +1,26 @@
-import { providerLogger } from '../config/logger.js';
+import { providerLogger } from "../config/logger.js";
 
-const SENSITIVE_HEADERS = new Set(['x-api-key', 'authorization', 'cookie']);
+const SENSITIVE_HEADERS = new Set(["x-api-key", "authorization", "cookie"]);
 
 function maskValue(key, value) {
+  if (!value || typeof value !== "string") return "****";
   if (SENSITIVE_HEADERS.has(key.toLowerCase())) {
     return value.length > 8
       ? `${value.slice(0, 4)}****${value.slice(-4)}`
-      : '****';
+      : "****";
   }
   return value;
 }
 
 function isValidHeaderValue(v) {
-  return typeof v === 'string' && v.length > 0 && v.length < 4096;
+  return typeof v === "string" && v.length > 0 && v.length < 4096;
 }
 
 function parseHeaderObject(obj) {
-  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return null;
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return null;
   const result = {};
   for (const [k, v] of Object.entries(obj)) {
-    if (typeof k === 'string' && k.length > 0 && isValidHeaderValue(v)) {
+    if (typeof k === "string" && k.length > 0 && isValidHeaderValue(v)) {
       result[k] = v;
     }
   }
@@ -27,101 +28,238 @@ function parseHeaderObject(obj) {
 }
 
 /**
- * Parses headers embedded in a malformed URL query string.
+ * Extracts payload fields from object (mobileNumber, amount, operatorId, circleId, type, etc.)
+ */
+function extractPayloadParams(obj) {
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return {};
+  const params = {};
+
+  const mobile = obj.mobileNumber || obj.mobile || obj.number || obj.phone;
+  if (mobile) params.mobileNumber = String(mobile).trim();
+
+  const amount = obj.amount ?? obj.amt;
+  if (amount !== undefined && amount !== null && amount !== "") {
+    params.amount = Number(amount);
+  }
+
+  const op = obj.operatorId || obj.operator || obj.op;
+  if (op) params.operatorId = String(op).trim();
+
+  const circle = obj.circleId || obj.circle || obj.state;
+  if (circle) params.circleId = String(circle).trim();
+
+  const type = obj.type || obj.rechargeType;
+  if (type) params.type = String(type).trim();
+
+  return params;
+}
+
+/**
+ * Fallback regex extractor for malformed/un-comma'd JSON in query strings
+ */
+function regexExtractFromQuery(str) {
+  const extractedHeaders = {};
+  const extractedParams = {};
+
+  // Extract API key
+  const apiKeyMatch = str.match(
+    /["']?(?:x-api-key|apiKey|api_key|key|token)["']?\s*[:=]\s*["']?([a-zA-Z0-9_\-]+)["']?/i,
+  );
+  if (apiKeyMatch && apiKeyMatch[1]) {
+    extractedHeaders["X-Api-Key"] = apiKeyMatch[1];
+  }
+
+  // Extract Content-Type
+  const ctMatch = str.match(
+    /["']?content-type["']?\s*[:=]\s*["']?([^"',\s}]+)["']?/i,
+  );
+  if (ctMatch && ctMatch[1]) {
+    extractedHeaders["Content-Type"] = ctMatch[1];
+  }
+
+  // Extract mobileNumber
+  const mobileMatch = str.match(
+    /["']?(?:mobileNumber|mobile|number|phone)["']?\s*[:=]\s*["']?([6-9]\d{9})["']?/i,
+  );
+  if (mobileMatch && mobileMatch[1]) {
+    extractedParams.mobileNumber = mobileMatch[1];
+  }
+
+  // Extract amount
+  const amountMatch = str.match(
+    /["']?(?:amount|amt)["']?\s*[:=]\s*["']?(\d+(?:\.\d+)?)["']?/i,
+  );
+  if (amountMatch && amountMatch[1]) {
+    extractedParams.amount = Number(amountMatch[1]);
+  }
+
+  // Extract operatorId
+  const opMatch = str.match(
+    /["']?(?:operatorId|operator|op)["']?\s*[:=]\s*["']?([a-fA-F0-9]{24})["']?/i,
+  );
+  if (opMatch && opMatch[1]) {
+    extractedParams.operatorId = opMatch[1];
+  }
+
+  // Extract circleId
+  const circleMatch = str.match(
+    /["']?(?:circleId|circle|state)["']?\s*[:=]\s*["']?([a-fA-F0-9]{24})["']?/i,
+  );
+  if (circleMatch && circleMatch[1]) {
+    extractedParams.circleId = circleMatch[1];
+  }
+
+  // Extract type (ensure it doesn't match Content-Type)
+  const typeMatch = str.match(
+    /(?:^|[^a-zA-Z\-_])(?:type|rechargeType)["']?\s*[:=]\s*["']?([A-Za-z_]+)["']?/i,
+  );
+  if (typeMatch && typeMatch[1]) {
+    extractedParams.type = typeMatch[1];
+  }
+
+  return { extractedHeaders, extractedParams };
+}
+
+/**
+ * Parses headers and parameters embedded in a URL query string.
  *
  * Supported formats:
  *   /path?[{"X-Api-Key":"crm_xxx"}]
- *   /path?%5B%7B%22X-Api-Key%22...%7D%5D
+ *   /path?{"X-Api-Key":"crm_xxx","mobileNumber":"8288880000",...}
+ *   /path?apiKey=crm_xxx&mobileNumber=8288880000&amount=10...
  *   /path?headers=[{"X-Api-Key":"crm_xxx"}]
  *
- * Returns { cleanUrl, extractedHeaders }
+ * Returns { cleanUrl, extractedHeaders, extractedParams }
  */
 export function parseHeadersFromUrl(rawUrl) {
-  const extractedHeaders = {};
+  let extractedHeaders = {};
+  let extractedParams = {};
   let cleanUrl = rawUrl;
 
   try {
-    const qIdx = rawUrl.indexOf('?');
-    if (qIdx === -1) return { cleanUrl, extractedHeaders };
+    const qIdx = rawUrl.indexOf("?");
+    if (qIdx === -1) return { cleanUrl, extractedHeaders, extractedParams };
 
     const base = rawUrl.slice(0, qIdx);
     const qs = rawUrl.slice(qIdx + 1);
 
-    if (!qs) return { cleanUrl, extractedHeaders };
+    if (!qs) return { cleanUrl, extractedHeaders, extractedParams };
 
-    const decoded = decodeURIComponent(qs);
-
-    // Format 1/2/3: entire query is a JSON array or object  ?[{...}] or ?{...}
-    const trimmed = decoded.trim();
-    if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
-      try {
-        const parsed = JSON.parse(trimmed);
-        const obj = Array.isArray(parsed) ? parsed[0] : parsed;
-        const headers = parseHeaderObject(obj);
-        if (headers) {
-          Object.assign(extractedHeaders, headers);
-          cleanUrl = base;
-          return { cleanUrl, extractedHeaders };
-        }
-      } catch {
-        // not valid JSON — fall through to param parsing
-      }
+    let decoded = qs;
+    try {
+      decoded = decodeURIComponent(qs);
+    } catch {
+      decoded = qs;
     }
 
-    // Format 4: ?headers=[{...}] or ?headers={...}
+    const trimmed = decoded.trim();
+
+    // Format 1: entire query is a JSON array or object ?[{...}] or ?{...}
+    if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+      cleanUrl = base;
+      let parsed = null;
+      try {
+        parsed = JSON.parse(trimmed);
+      } catch {
+        // Attempt regex extraction for malformed JSON (e.g. missing commas)
+        const regexRes = regexExtractFromQuery(trimmed);
+        Object.assign(extractedHeaders, regexRes.extractedHeaders);
+        Object.assign(extractedParams, regexRes.extractedParams);
+      }
+
+      if (parsed) {
+        const obj = Array.isArray(parsed) ? parsed[0] : parsed;
+        const headers = parseHeaderObject(obj);
+        if (headers) Object.assign(extractedHeaders, headers);
+        const params = extractPayloadParams(obj);
+        if (params) Object.assign(extractedParams, params);
+      }
+
+      return { cleanUrl, extractedHeaders, extractedParams };
+    }
+
+    // Format 2: standard query parameters
     const params = new URLSearchParams(qs);
-    const headersParam = params.get('headers');
+    const headersParam = params.get("headers");
     if (headersParam) {
       try {
         const decodedParam = decodeURIComponent(headersParam);
         const parsed = JSON.parse(decodedParam);
         const obj = Array.isArray(parsed) ? parsed[0] : parsed;
         const headers = parseHeaderObject(obj);
-        if (headers) {
-          Object.assign(extractedHeaders, headers);
-          params.delete('headers');
-          const remaining = params.toString();
-          cleanUrl = remaining ? `${base}?${remaining}` : base;
-          return { cleanUrl, extractedHeaders };
-        }
+        if (headers) Object.assign(extractedHeaders, headers);
       } catch {
-        // not valid — ignore
+        // ignore
       }
+      params.delete("headers");
     }
+
+    // Check query params for apiKey / x-api-key
+    const queryApiKey =
+      params.get("apiKey") ||
+      params.get("api_key") ||
+      params.get("X-Api-Key") ||
+      params.get("x-api-key") ||
+      params.get("key") ||
+      params.get("token");
+    if (queryApiKey) {
+      extractedHeaders["X-Api-Key"] = queryApiKey;
+    }
+
+    // Extract query params for recharge
+    const queryObj = Object.fromEntries(params.entries());
+    const extractedFromQuery = extractPayloadParams(queryObj);
+    Object.assign(extractedParams, extractedFromQuery);
+
+    // If query string was malformed or regex needed
+    if (!extractedHeaders["X-Api-Key"]) {
+      const regexRes = regexExtractFromQuery(decoded);
+      Object.assign(extractedHeaders, regexRes.extractedHeaders);
+      Object.assign(extractedParams, regexRes.extractedParams);
+    }
+
+    const remaining = params.toString();
+    cleanUrl = remaining ? `${base}?${remaining}` : base;
   } catch {
-    // never throw — malformed optional headers should not crash the app
+    // safety net — never throw
   }
 
-  return { cleanUrl, extractedHeaders };
+  return { cleanUrl, extractedHeaders, extractedParams };
 }
 
 /**
  * Express middleware.
- * Detects headers embedded in URL query string, extracts them, cleans the URL,
- * and merges them with existing request headers.
- * Explicit request headers always take precedence over URL-extracted headers.
+ * Detects headers and params embedded in URL query string, extracts them, cleans the URL,
+ * and merges them with existing request headers, query, and body.
  */
 export const normalizeHeaders = (req, res, next) => {
   try {
-    const rawUrl = req.url;
-    const { cleanUrl, extractedHeaders } = parseHeadersFromUrl(rawUrl);
+    const rawUrl = req.url || req.originalUrl || "";
+    const { cleanUrl, extractedHeaders, extractedParams } =
+      parseHeadersFromUrl(rawUrl);
 
     if (Object.keys(extractedHeaders).length) {
       const masked = Object.fromEntries(
         Object.entries(extractedHeaders).map(([k, v]) => [k, maskValue(k, v)]),
       );
-      providerLogger.debug('Extracted headers from URL', { maskedHeaders: masked });
+      providerLogger.debug("Extracted headers from URL", {
+        maskedHeaders: masked,
+      });
 
-      // Normalise keys to lowercase for comparison
       for (const [key, value] of Object.entries(extractedHeaders)) {
         const lower = key.toLowerCase();
-        // Only inject if the request doesn't already have this header
         if (!req.headers[lower]) {
           req.headers[lower] = value;
         }
       }
+    }
 
-      // Rewrite cleaned URL so downstream routing/logging uses the clean path
+    if (Object.keys(extractedParams).length) {
+      req.body = { ...extractedParams, ...(req.body || {}) };
+      req.query = { ...extractedParams, ...(req.query || {}) };
+    }
+
+    if (cleanUrl && cleanUrl !== rawUrl) {
       req.url = cleanUrl;
     }
   } catch {
