@@ -21,8 +21,15 @@ const checkPendingBatch = async () => {
 
     for (const txn of pending) {
       try {
+        // Use providerTxnId if available, fallback to txnId; skip if neither exists
+        const checkId = txn.providerTxnId || txn.txnId;
+        if (!checkId) {
+          cronLogger.warn('Skipping txn with no checkable ID', { txnId: txn.txnId });
+          continue;
+        }
+
         const statusResult = await mroboticsProvider.checkStatus(
-          txn.providerTxnId,
+          checkId,
           txn.txnId,
         );
 

@@ -5,7 +5,7 @@ import { AuthenticationError, AuthorizationError } from '../helpers/error.helper
 import { asyncHandler } from '../utils/async.util.js';
 
 export const authenticateApiKey = asyncHandler(async (req, res, next) => {
-  const raw =
+  let raw =
     req.headers['x-api-key'] ||
     req.headers['apikey'] ||
     req.headers['api-key'] ||
@@ -19,6 +19,29 @@ export const authenticateApiKey = asyncHandler(async (req, res, next) => {
     req.body?.['X-Api-Key'] ||
     req.body?.apiKey ||
     req.body?.api_key;
+
+  // Fallback 1: Inspect req.query keys/values if Express parsed them weirdly
+  if (!raw && req.query) {
+    for (const [k, v] of Object.entries(req.query)) {
+      const combined = `${k}=${typeof v === 'string' ? v : JSON.stringify(v)}`;
+      const m = combined.match(/(?:x-api-key|apiKey|api_key|key|token)["']?\s*[:=]\s*["']?([a-zA-Z0-9_\-]+)["']?/i) ||
+                combined.match(/(crm_[a-fA-F0-9]+)/i);
+      if (m && m[1]) {
+        raw = m[1];
+        break;
+      }
+    }
+  }
+
+  // Fallback 2: Inspect raw URL and originalUrl
+  if (!raw) {
+    const fullUrl = `${req.originalUrl || ''} ${req.url || ''}`;
+    const m = fullUrl.match(/(?:x-api-key|apiKey|api_key|key|token)["']?\s*[:=]\s*["']?([a-zA-Z0-9_\-]+)["']?/i) ||
+              fullUrl.match(/(crm_[a-fA-F0-9]+)/i);
+    if (m && m[1]) {
+      raw = m[1];
+    }
+  }
 
   if (!raw) throw new AuthenticationError('API key is required. Pass it in the X-Api-Key header.');
 

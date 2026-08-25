@@ -229,14 +229,40 @@ export function parseHeadersFromUrl(rawUrl) {
 
 /**
  * Express middleware.
- * Detects headers and params embedded in URL query string, extracts them, cleans the URL,
- * and merges them with existing request headers, query, and body.
+ * Detects headers and params embedded in URL query string, req.body keys, or req.query keys,
+ * extracts them, cleans the URL, and merges them with existing request headers, query, and body.
+ *
+ * Handles rechargeinstant.com "QUERY STRING" POST format where the entire JSON blob
+ * is sent as a single key in req.body like: { '{"X-Api-Key":"...","mobileNumber":"..."}': '' }
  */
 export const normalizeHeaders = (req, res, next) => {
   try {
-    const rawUrl = req.url || req.originalUrl || "";
-    const { cleanUrl, extractedHeaders, extractedParams } =
-      parseHeadersFromUrl(rawUrl);
+    const rawUrl = req.originalUrl || req.url || "";
+    const { extractedHeaders, extractedParams } = parseHeadersFromUrl(rawUrl);
+
+    // Also scan req.body and req.query keys — websites like rechargeinstant.com send
+    // the entire JSON blob as a key in form-encoded POST body
+    const scanTargets = [req.body, req.query];
+    for (const target of scanTargets) {
+      if (!target || typeof target !== "object") continue;
+      for (const [k, v] of Object.entries(target)) {
+        const candidate = (k || "") + (v ? `=${v}` : "");
+        const trimmed = candidate.replace(/^=/, "").trim();
+
+        // If key starts with { or [ it's an embedded JSON blob
+        if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+          const { extractedHeaders: h2, extractedParams: p2 } = parseHeadersFromUrl(`/__tmp?${encodeURIComponent(trimmed)}`);
+          Object.assign(extractedHeaders, h2);
+          Object.assign(extractedParams, p2);
+        } else {
+          // Try regex on key+value pair
+          const apiKeyM = candidate.match(/(crm_[a-zA-Z0-9]+)/i);
+          if (apiKeyM && apiKeyM[1] && !extractedHeaders["X-Api-Key"]) {
+            extractedHeaders["X-Api-Key"] = apiKeyM[1];
+          }
+        }
+      }
+    }
 
     if (Object.keys(extractedHeaders).length) {
       const masked = Object.fromEntries(
@@ -255,12 +281,21 @@ export const normalizeHeaders = (req, res, next) => {
     }
 
     if (Object.keys(extractedParams).length) {
+      // Merge extracted params into body (extracted params lose to explicit body values)
       req.body = { ...extractedParams, ...(req.body || {}) };
       req.query = { ...extractedParams, ...(req.query || {}) };
+
+      // Clean up the raw JSON blob keys from req.body that came from form-encoded POST
+      for (const k of Object.keys(req.body)) {
+        if (k.startsWith("{") || k.startsWith("[")) {
+          delete req.body[k];
+        }
+      }
     }
 
-    if (cleanUrl && cleanUrl !== rawUrl) {
-      req.url = cleanUrl;
+    // Clean relative req.url query string
+    if (req.url && req.url.includes("?")) {
+      req.url = req.url.slice(0, req.url.indexOf("?"));
     }
   } catch {
     // safety net — never block the request
@@ -268,3 +303,4 @@ export const normalizeHeaders = (req, res, next) => {
 
   next();
 };
+
