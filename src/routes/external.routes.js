@@ -54,10 +54,10 @@ const simplifyRechargeResponse = (req, res, next) => {
         const mobileNumber = getMobileNumber(null, req);
         const amount = getAmount(null, req);
         const message = body.message || (Array.isArray(body.errors) && body.errors.length > 0 ? (body.errors[0].message || body.errors[0].msg) : '') || 'Request failed';
+        const providerTxnId = body.providerTxnId || message || 'FAILED';
         return originalJson({
           success: false,
-          providerTxnId: '',
-          mobileNumber,
+          providerTxnId,
           number: mobileNumber,
           amount,
           message,
@@ -77,15 +77,14 @@ const simplifyRechargeResponse = (req, res, next) => {
       success = false;
     }
 
-    const providerTxnId = txn.providerTxnId || txn.operatorRef || txn.mroboticsRcId || '';
     const message = txn.providerMessage || txn.statusMessage || body.message || '';
+    const providerTxnId = txn.providerTxnId || txn.operatorRef || txn.mroboticsRcId || (txn.txnId ? String(txn.txnId) : '') || message || 'FAILED';
     const mobileNumber = getMobileNumber(txn, req);
     const amount = getAmount(txn, req);
 
     return originalJson({
       success,
       providerTxnId,
-      mobileNumber,
       number: mobileNumber,
       amount,
       message,
@@ -198,11 +197,11 @@ router.use('/recharge', (err, req, res, next) => {
   const message = err.message || 'Internal server error';
   const mobileNumber = getMobileNumber(null, req);
   const amount = getAmount(null, req);
+  const providerTxnId = message || 'FAILED';
 
   return res.status(statusCode).json({
     success: false,
-    providerTxnId: '',
-    mobileNumber,
+    providerTxnId,
     number: mobileNumber,
     amount,
     message,
