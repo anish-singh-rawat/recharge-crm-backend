@@ -18,12 +18,51 @@ const router = Router();
 router.use(authenticateApiKey);
 router.use(requireApiAccess);
 
+const getMobileNumber = (txn, req) => {
+  return String(
+    txn?.mobileNumber ||
+    req?.body?.mobileNumber ||
+    req?.query?.mobileNumber ||
+    req?.body?.number ||
+    req?.query?.number ||
+    req?.body?.mobile ||
+    req?.query?.mobile ||
+    req?.body?.phone ||
+    req?.query?.phone ||
+    ''
+  );
+};
+
+const getAmount = (txn, req) => {
+  if (txn?.amount !== undefined && txn?.amount !== null && txn?.amount !== '') {
+    return txn.amount;
+  }
+  const amt = req?.body?.amount ?? req?.query?.amount ?? req?.body?.amt ?? req?.query?.amt;
+  if (amt !== undefined && amt !== null && amt !== '') {
+    return Number(amt) || amt;
+  }
+  return '';
+};
+
 const simplifyRechargeResponse = (req, res, next) => {
   const originalJson = res.json.bind(res);
 
   res.json = (body) => {
     const txn = body?.data?.transaction;
     if (!txn) {
+      if (body && typeof body === 'object' && body.success === false) {
+        const mobileNumber = getMobileNumber(null, req);
+        const amount = getAmount(null, req);
+        const message = body.message || (Array.isArray(body.errors) && body.errors.length > 0 ? (body.errors[0].message || body.errors[0].msg) : '') || 'Request failed';
+        return originalJson({
+          success: false,
+          providerTxnId: '',
+          mobileNumber,
+          number: mobileNumber,
+          amount,
+          message,
+        });
+      }
       return originalJson(body);
     }
 
@@ -40,8 +79,17 @@ const simplifyRechargeResponse = (req, res, next) => {
 
     const providerTxnId = txn.providerTxnId || txn.operatorRef || txn.mroboticsRcId || '';
     const message = txn.providerMessage || txn.statusMessage || body.message || '';
+    const mobileNumber = getMobileNumber(txn, req);
+    const amount = getAmount(txn, req);
 
-    return originalJson({ success, providerTxnId, message });
+    return originalJson({
+      success,
+      providerTxnId,
+      mobileNumber,
+      number: mobileNumber,
+      amount,
+      message,
+    });
   };
 
   next();
@@ -148,9 +196,15 @@ router.get(
 router.use('/recharge', (err, req, res, next) => {
   const statusCode = err.statusCode || 500;
   const message = err.message || 'Internal server error';
+  const mobileNumber = getMobileNumber(null, req);
+  const amount = getAmount(null, req);
+
   return res.status(statusCode).json({
     success: false,
     providerTxnId: '',
+    mobileNumber,
+    number: mobileNumber,
+    amount,
     message,
   });
 });
