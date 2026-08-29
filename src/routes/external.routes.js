@@ -18,7 +18,35 @@ const router = Router();
 router.use(authenticateApiKey);
 router.use(requireApiAccess);
 
-// Middleware to normalize payload for external recharge calls
+const simplifyRechargeResponse = (req, res, next) => {
+  const originalJson = res.json.bind(res);
+
+  res.json = (body) => {
+    const txn = body?.data?.transaction;
+    if (!txn) {
+      return originalJson(body);
+    }
+
+    const status = (txn.status || '').toUpperCase();
+
+    let success;
+    if (status === 'SUCCESS') {
+      success = true;
+    } else if (['PENDING', 'PROCESSING', 'INITIATED'].includes(status)) {
+      success = 'PENDING';
+    } else {
+      success = false;
+    }
+
+    const providerTxnId = txn.providerTxnId || txn.operatorRef || txn.mroboticsRcId || '';
+    const message = txn.providerMessage || txn.statusMessage || body.message || '';
+
+    return originalJson({ success, providerTxnId, message });
+  };
+
+  next();
+};
+
 const normalizeRechargePayload = (req, res, next) => {
   req.body = { ...(req.query || {}), ...(req.body || {}) };
 
@@ -70,6 +98,7 @@ const handleGetRecharge = (req, res, next) => {
 
 router.post(
   '/recharge',
+  simplifyRechargeResponse,
   normalizeRechargePayload,
   rechargeRateLimiter,
   authorizePermissions(PERMISSIONS.RECHARGE_INITIATE),
@@ -79,12 +108,14 @@ router.post(
 
 router.get(
   '/recharge',
+  simplifyRechargeResponse,
   normalizeRechargePayload,
   handleGetRecharge,
 );
 
 router.get(
   '/recharge/:txnId',
+  simplifyRechargeResponse,
   authorizePermissions(PERMISSIONS.RECHARGE_STATUS),
   rechargeStatusValidator,
   rechargeController.getStatus,
@@ -113,5 +144,15 @@ router.get(
   authorizePermissions(PERMISSIONS.PLAN_LIST),
   operatorController.getPlanRecommendations,
 );
+
+router.use('/recharge', (err, req, res, next) => {
+  const statusCode = err.statusCode || 500;
+  const message = err.message || 'Internal server error';
+  return res.status(statusCode).json({
+    success: false,
+    providerTxnId: '',
+    message,
+  });
+});
 
 export default router;
