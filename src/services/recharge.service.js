@@ -169,6 +169,22 @@ export const rechargeService = {
     if (amount < env.wallet.minRechargeAmount) throw new RechargeError(`Minimum recharge amount is ₹${env.wallet.minRechargeAmount}`);
     if (amount > env.wallet.maxRechargeAmount) throw new RechargeError(`Maximum recharge amount is ₹${env.wallet.maxRechargeAmount}`);
 
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const recentDuplicate = await rechargeTransactionRepository.model.findOne({
+      user: user._id,
+      mobileNumber,
+      amount,
+      status: 'SUCCESS',
+      createdAt: { $gte: oneHourAgo },
+    }).lean();
+    if (recentDuplicate) {
+      const minutesAgo = Math.ceil((Date.now() - new Date(recentDuplicate.createdAt).getTime()) / 60000);
+      const waitMinutes = 60 - minutesAgo;
+      throw new RechargeError(
+        `Duplicate recharge detected. ₹${amount} was successfully recharged to ${mobileNumber} ${minutesAgo} min ago. Please wait ${waitMinutes} more minute${waitMinutes !== 1 ? 's' : ''} before retrying.`,
+      );
+    }
+
     const wallet = await walletRepository.findByUserId(user.id);
     if (!wallet) throw new WalletError('Wallet not found');
     assertWalletCanDebit(wallet, amount);
