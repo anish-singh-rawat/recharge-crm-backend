@@ -12,9 +12,34 @@ export const rechargeController = {
     };
     const txn = await rechargeService.initiateRecharge(req.body, req.user, requestMeta);
     const isSuccess = txn.status === 'SUCCESS';
+    const isExternalApiRequest = !!req.apiKey;
+
+    if (isExternalApiRequest && txn.providerRawResponse) {
+      return res.status(isSuccess ? HTTP_STATUS.CREATED : HTTP_STATUS.OK).json(txn.providerRawResponse,);
+    }
+
     sendSuccess(res, {
-      message: isSuccess ? 'Recharge successful' : `Recharge ${txn.status.toLowerCase()}: ${txn.providerMessage || txn.statusMessage}`,
-      data: { transaction: txn },
+      message: isSuccess
+        ? 'Recharge successful'
+        : `Recharge ${txn.status.toLowerCase()}: ${txn.providerMessage || txn.statusMessage}`,
+      data: {
+        transaction: {
+          txnId:           txn.txnId,
+          status:          txn.status,
+          mobileNumber:    txn.mobileNumber,
+          amount:          txn.amount,
+          operator:        txn.operator,
+          circle:          txn.circle,
+          providerTxnId:   txn.providerTxnId,
+          providerStatus:  txn.providerStatus,
+          providerMessage: txn.providerMessage,
+          operatorRef:     txn.operatorRef,
+          commission:      txn.commission,
+          refundAmount:    txn.refundAmount,
+          usedProvider:    txn.usedProvider,
+          createdAt:       txn.createdAt,
+        },
+      },
       statusCode: isSuccess ? HTTP_STATUS.CREATED : HTTP_STATUS.OK,
     });
   }),

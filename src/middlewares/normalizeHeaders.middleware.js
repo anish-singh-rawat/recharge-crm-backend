@@ -27,9 +27,6 @@ function parseHeaderObject(obj) {
   return Object.keys(result).length ? result : null;
 }
 
-/**
- * Extracts payload fields from object (mobileNumber, amount, operatorId, circleId, type, etc.)
- */
 function extractPayloadParams(obj) {
   if (!obj || typeof obj !== "object" || Array.isArray(obj)) return {};
   const params = {};
@@ -54,9 +51,6 @@ function extractPayloadParams(obj) {
   return params;
 }
 
-/**
- * Fallback regex extractor for malformed/un-comma'd JSON in query strings
- */
 function regexExtractFromQuery(str) {
   const extractedHeaders = {};
   const extractedParams = {};
@@ -120,17 +114,6 @@ function regexExtractFromQuery(str) {
   return { extractedHeaders, extractedParams };
 }
 
-/**
- * Parses headers and parameters embedded in a URL query string.
- *
- * Supported formats:
- *   /path?[{"X-Api-Key":"crm_xxx"}]
- *   /path?{"X-Api-Key":"crm_xxx","mobileNumber":"8288880000",...}
- *   /path?apiKey=crm_xxx&mobileNumber=8288880000&amount=10...
- *   /path?headers=[{"X-Api-Key":"crm_xxx"}]
- *
- * Returns { cleanUrl, extractedHeaders, extractedParams }
- */
 export function parseHeadersFromUrl(rawUrl) {
   let extractedHeaders = {};
   let extractedParams = {};
@@ -227,21 +210,12 @@ export function parseHeadersFromUrl(rawUrl) {
   return { cleanUrl, extractedHeaders, extractedParams };
 }
 
-/**
- * Express middleware.
- * Detects headers and params embedded in URL query string, req.body keys, or req.query keys,
- * extracts them, cleans the URL, and merges them with existing request headers, query, and body.
- *
- * Handles rechargeinstant.com "QUERY STRING" POST format where the entire JSON blob
- * is sent as a single key in req.body like: { '{"X-Api-Key":"...","mobileNumber":"..."}': '' }
- */
 export const normalizeHeaders = (req, res, next) => {
   try {
     const rawUrl = req.originalUrl || req.url || "";
     const { extractedHeaders, extractedParams } = parseHeadersFromUrl(rawUrl);
 
-    // Also scan req.body and req.query keys — websites like rechargeinstant.com send
-    // the entire JSON blob as a key in form-encoded POST body
+  
     const scanTargets = [req.body, req.query];
     for (const target of scanTargets) {
       if (!target || typeof target !== "object") continue;
@@ -249,13 +223,11 @@ export const normalizeHeaders = (req, res, next) => {
         const candidate = (k || "") + (v ? `=${v}` : "");
         const trimmed = candidate.replace(/^=/, "").trim();
 
-        // If key starts with { or [ it's an embedded JSON blob
         if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
           const { extractedHeaders: h2, extractedParams: p2 } = parseHeadersFromUrl(`/__tmp?${encodeURIComponent(trimmed)}`);
           Object.assign(extractedHeaders, h2);
           Object.assign(extractedParams, p2);
         } else {
-          // Try regex on key+value pair
           const apiKeyM = candidate.match(/(crm_[a-zA-Z0-9]+)/i);
           if (apiKeyM && apiKeyM[1] && !extractedHeaders["X-Api-Key"]) {
             extractedHeaders["X-Api-Key"] = apiKeyM[1];

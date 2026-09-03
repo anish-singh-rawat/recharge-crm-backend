@@ -122,13 +122,22 @@ async function callProviderWithFallback({ mobileNumber, amount, operator, circle
 
       if (result.status === 'FAILED') {
         const failMsg = result.message || `${providerName} recharge failed`;
-        rechargeLogger.warn(`Provider ${providerName} returned FAILED, trying next`, {
+        const isTransient = /generating txn|txn no|transaction number|try again|timeout|temporarily/i.test(failMsg);
+
+        rechargeLogger.warn(`Provider ${providerName} returned FAILED, ${isTransient ? 'transient — will retry' : 'trying next provider'}`, {
           txnId,
           provider: providerName,
           message: failMsg,
+          isTransient,
         });
+
         lastError = new Error(failMsg);
-        lastError.isRetryable = false;
+        lastError.isRetryable = isTransient;
+
+        if (isTransient) {
+          return { result, usedProvider: providerName };
+        }
+
         continue;
       }
 
@@ -256,7 +265,7 @@ export const rechargeService = {
 
       rechargeLogger.error('All providers failed', { txnId, error: errMsg });
 
-      const isRetryable = providerErr.isRetryable !== false;
+      const isRetryable = providerErr.isRetryable === true;
       const nextRetryAt = isRetryable ? calcNextRetryAt(0) : null;
 
       await rechargeTransactionRepository.updateOne(
@@ -335,6 +344,9 @@ export const rechargeService = {
     }).catch(() => {});
 
     rechargeLogger.info('Recharge completed', { txnId, status: finalStatus, usedProvider });
+
+    updatedTxn.providerRawResponse = providerResult.rawResponse ?? null;
+
     return updatedTxn;
   },
 
