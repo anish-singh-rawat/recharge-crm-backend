@@ -133,6 +133,7 @@ async function callProviderWithFallback({ mobileNumber, amount, operator, circle
 
         lastError = new Error(failMsg);
         lastError.isRetryable = isTransient;
+        lastError.rawResponse = result.rawResponse;
 
         if (isTransient) {
           return { result, usedProvider: providerName };
@@ -159,6 +160,9 @@ async function callProviderWithFallback({ mobileNumber, amount, operator, circle
 
   const finalErr = lastError || new Error('All providers failed');
   finalErr.isRetryable = false;
+  if (!finalErr.rawResponse && lastError?.rawResponse) {
+    finalErr.rawResponse = lastError.rawResponse;
+  }
   throw finalErr;
 }
 

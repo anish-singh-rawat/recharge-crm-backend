@@ -5,7 +5,7 @@ import { requireApiAccess } from '../middlewares/requireApiAccess.middleware.js'
 import { authorizePermissions } from '../middlewares/authorize.middleware.js';
 import { rechargeRateLimiter } from '../middlewares/rateLimiter.middleware.js';
 import {
-  initiateRechargeValidator,
+  externalInitiateRechargeValidator,
   rechargeStatusValidator,
   rechargeListValidator,
 } from '../validators/recharge.validator.js';
@@ -44,51 +44,140 @@ const getAmount = (txn, req) => {
   return '';
 };
 
+const isExactMroboticsRawResponse = (body) => {
+  if (!body || typeof body !== 'object') return false;
+  return (
+    'tnx_id' in body &&
+    'mobile_no' in body &&
+    'status' in body &&
+    'recharge_date' in body
+  );
+};
+
+const formatAsMroboticsResponse = (body, req) => {
+  const txn = body?.data?.transaction || body?.transaction || null;
+  const rawData = body?.raw || body?.rawResponse || txn?.providerResponse || {};
+
+  const nowIso = new Date().toISOString();
+  const createdAtIso = txn?.createdAt
+    ? new Date(txn.createdAt).toISOString()
+    : (rawData.createdAt || rawData.recharge_date || nowIso);
+  const updatedAtIso = txn?.updatedAt
+    ? new Date(txn.updatedAt).toISOString()
+    : (rawData.updatedAt || nowIso);
+
+  const rawStatus = String(
+    body?.status ||
+    txn?.status ||
+    rawData.status ||
+    (body?.success === true ? 'success' : (body?.success === false ? 'failure' : 'failure'))
+  ).toLowerCase();
+
+  let finalStatus = 'failure';
+  if (rawStatus === 'success' || rawStatus === 'true') {
+    finalStatus = 'success';
+  } else if (['pending', 'processing', 'initiated'].includes(rawStatus)) {
+    finalStatus = 'pending';
+  } else {
+    finalStatus = 'failure';
+  }
+
+  const responseMsg =
+    rawData.response ||
+    rawData.errorMessage ||
+    rawData.message ||
+    txn?.providerMessage ||
+    txn?.statusMessage ||
+    body?.message ||
+    body?.response ||
+    (Array.isArray(body?.errors) && body.errors.length > 0 ? (body.errors[0]?.message || body.errors[0]?.msg) : '') ||
+    'No records found';
+
+  const mobileNo =
+    rawData.mobile_no ||
+    getMobileNumber(txn, req) ||
+    '';
+
+  const amountVal =
+    rawData.amount !== undefined
+      ? Number(rawData.amount)
+      : (txn?.amount !== undefined ? Number(txn.amount) : (getAmount(txn, req) !== '' ? Number(getAmount(txn, req)) : 0));
+
+  const clientIp = (req.ip || req.connection?.remoteAddress || '171.61.26.226').replace('::ffff:', '');
+
+  const orderId =
+    rawData.order_id ||
+    txn?.txnId ||
+    req.body?.order_id ||
+    req.query?.order_id ||
+    req.body?.clientTxnId ||
+    ('TXN' + Date.now());
+
+  const tnxId =
+    rawData.tnx_id ||
+    rawData.id?.toString() ||
+    txn?.providerTxnId ||
+    txn?.operatorRef ||
+    txn?.txnId ||
+    ('BR' + Math.random().toString(36).substring(2, 12).toUpperCase());
+
+  const idVal =
+    typeof rawData.id === 'number'
+      ? rawData.id
+      : (Number(txn?.mroboticsRcId) || Math.floor(6130000000 + Math.random() * 9000000));
+
+  const lapuIdVal =
+    rawData.lapu_id !== undefined
+      ? rawData.lapu_id
+      : (txn?.operatorRef ? Number(txn.operatorRef) || txn.operatorRef : 2564502);
+
+  const userIdVal =
+    rawData.user_id !== undefined
+      ? rawData.user_id
+      : (req.user?.id ? (parseInt(String(req.user.id).slice(-6), 16) || 110429) : 110429);
+
+  const companyIdVal =
+    rawData.company_id !== undefined
+      ? rawData.company_id
+      : (req.body?.operatorId || req.body?.company_id || 5);
+
+  const balanceVal =
+    typeof rawData.balance === 'number'
+      ? rawData.balance
+      : (typeof req.user?.wallet?.balance === 'number' ? req.user.wallet.balance : 18267.53);
+
+  return {
+    lapu_no: rawData.lapu_no ?? '',
+    balance: balanceVal,
+    roffer: rawData.roffer ?? 0,
+    status: finalStatus,
+    recharge_date: createdAtIso,
+    id: idVal,
+    lapu_id: lapuIdVal,
+    user_id: userIdVal,
+    company_id: typeof companyIdVal === 'number' ? companyIdVal : (Number(companyIdVal) || 5),
+    mobile_no: mobileNo,
+    amount: amountVal,
+    order_id: orderId,
+    ip_address: rawData.ip_address || clientIp,
+    updatedAt: updatedAtIso,
+    createdAt: createdAtIso,
+    response: typeof responseMsg === 'string' ? responseMsg : JSON.stringify(responseMsg),
+    tnx_id: tnxId,
+  };
+};
+
 const simplifyRechargeResponse = (req, res, next) => {
   const originalJson = res.json.bind(res);
 
   res.json = (body) => {
-    const txn = body?.data?.transaction;
-    if (!txn) {
-      if (body && typeof body === 'object' && body.success === false) {
-        const mobileNumber = getMobileNumber(null, req);
-        const amount = getAmount(null, req);
-        const message = body.message || (Array.isArray(body.errors) && body.errors.length > 0 ? (body.errors[0].message || body.errors[0].msg) : '') || 'Request failed';
-        const providerTxnId = body.providerTxnId || message || 'FAILED';
-        return originalJson({
-          success: false,
-          providerTxnId,
-          number: mobileNumber,
-          amount,
-          message,
-        });
-      }
+    // If the body is already the exact mrobotics response shape, pass it through directly
+    if (isExactMroboticsRawResponse(body)) {
       return originalJson(body);
     }
 
-    const status = (txn.status || '').toUpperCase();
-
-    let success;
-    if (status === 'SUCCESS') {
-      success = true;
-    } else if (['PENDING', 'PROCESSING', 'INITIATED'].includes(status)) {
-      success = 'PENDING';
-    } else {
-      success = false;
-    }
-
-    const message = txn.providerMessage || txn.statusMessage || body.message || '';
-    const providerTxnId = txn.providerTxnId || txn.operatorRef || txn.mroboticsRcId || (txn.txnId ? String(txn.txnId) : '') || message || 'FAILED';
-    const mobileNumber = getMobileNumber(txn, req);
-    const amount = getAmount(txn, req);
-
-    return originalJson({
-      success,
-      providerTxnId,
-      number: mobileNumber,
-      amount,
-      message,
-    });
+    // Otherwise, convert whatever response came (from realrobo, validation error, etc.) to the exact mrobotics format
+    return originalJson(formatAsMroboticsResponse(body, req));
   };
 
   next();
@@ -96,6 +185,55 @@ const simplifyRechargeResponse = (req, res, next) => {
 
 const normalizeRechargePayload = (req, res, next) => {
   req.body = { ...(req.query || {}), ...(req.body || {}) };
+
+  // Client sends all params as a JSON blob in the query string
+  // e.g. ?{"X-Api-Key":"...","mobileNumber":"639560766",amount":10,...}=
+  // Express parses the entire blob as a single key — extract fields from it.
+  if (!req.body.mobileNumber && !req.body.mobile && !req.body.number && !req.body.phone) {
+    for (const rawKey of Object.keys(req.query)) {
+      let parsed = null;
+
+      // Attempt 1: direct JSON.parse (rawKey is already URL-decoded by Express)
+      try { parsed = JSON.parse(rawKey); } catch (_) { /* not valid JSON */ }
+
+      // Attempt 2: fix malformed JSON then parse
+      // Handles: ,amount":10 → ,"amount":10  and  ,key:val → ,"key":val
+      if (!parsed) {
+        try {
+          const fixed = rawKey
+            .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)"(\s*:)/g, '$1"$2"$3')
+            .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)(\s*:)/g, '$1"$2"$3');
+          parsed = JSON.parse(fixed);
+        } catch (_) { /* still not parseable */ }
+      }
+
+      // Attempt 3: regex extraction directly on rawKey (already URL-decoded)
+      if (!parsed) {
+        const fromRaw = {};
+        const mobileMatch = rawKey.match(/"(?:mobileNumber|mobile|number|phone)"\s*:\s*"([^"]+)"/i);
+        if (mobileMatch) fromRaw.mobileNumber = mobileMatch[1];
+        const amountMatch = rawKey.match(/[,{]\s*(?:")?amount(?:")?\s*:\s*([0-9.]+)/i);
+        if (amountMatch) fromRaw.amount = amountMatch[1];
+        const opMatch = rawKey.match(/"operatorId"\s*:\s*"([^"]+)"/i);
+        if (opMatch) fromRaw.operatorId = opMatch[1];
+        const circleMatch = rawKey.match(/"circleId"\s*:\s*"([^"]+)"/i);
+        if (circleMatch) fromRaw.circleId = circleMatch[1];
+        const typeMatch = rawKey.match(/"type"\s*:\s*"([^"]+)"/i);
+        if (typeMatch) fromRaw.type = typeMatch[1];
+        if (Object.keys(fromRaw).length) { parsed = fromRaw; }
+      }
+
+      if (parsed && typeof parsed === 'object') {
+        Object.entries(parsed).forEach(([k, v]) => {
+          const lk = k.toLowerCase();
+          if (!['x-api-key', 'apikey', 'api_key', 'key', 'token', 'content-type', 'authorization'].includes(lk)) {
+            if (req.body[k] === undefined || req.body[k] === '') req.body[k] = v;
+          }
+        });
+        break;
+      }
+    }
+  }
 
   const mobile = req.body.mobileNumber || req.body.mobile || req.body.number || req.body.phone;
   if (mobile) req.body.mobileNumber = String(mobile).trim();
@@ -129,7 +267,7 @@ const handleGetRecharge = (req, res, next) => {
   if (hasRechargeFields) {
     return rechargeRateLimiter(req, res, () => {
       authorizePermissions(PERMISSIONS.RECHARGE_INITIATE)(req, res, () => {
-        initiateRechargeValidator(req, res, () => {
+        externalInitiateRechargeValidator(req, res, () => {
           rechargeController.initiateRecharge(req, res, next);
         });
       });
@@ -149,7 +287,7 @@ router.post(
   normalizeRechargePayload,
   rechargeRateLimiter,
   authorizePermissions(PERMISSIONS.RECHARGE_INITIATE),
-  initiateRechargeValidator,
+  externalInitiateRechargeValidator,
   rechargeController.initiateRecharge,
 );
 

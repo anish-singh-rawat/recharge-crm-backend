@@ -30,6 +30,30 @@ export const initiateRechargeValidator = [
   validate,
 ];
 
+export const externalInitiateRechargeValidator = [
+  body('mobileNumber')
+    .trim()
+    .notEmpty()
+    .withMessage('Mobile number is required')
+    .matches(/^\d{7,15}$/)
+    .withMessage('Please provide a valid mobile number (7-15 digits)'),
+  body('amount')
+    .isFloat({ min: 1, max: 10000 })
+    .withMessage('Amount must be between ₹1 and ₹10,000')
+    .toFloat(),
+  body('operatorId')
+    .notEmpty()
+    .withMessage('Operator is required'),
+  body('circleId')
+    .optional({ checkFalsy: true }),
+  body('type')
+    .optional({ checkFalsy: true })
+    .customSanitizer(val => val || RECHARGE_TYPE.MOBILE_PREPAID)
+    .isIn(Object.values(RECHARGE_TYPE))
+    .withMessage(`type must be one of: ${Object.values(RECHARGE_TYPE).join(', ')}`),
+  validate,
+];
+
 export const rechargeStatusValidator = [
   param('txnId')
     .trim()

@@ -17,16 +17,18 @@ export const rechargeController = {
     try {
       txn = await rechargeService.initiateRecharge(req.body, req.user, requestMeta);
     } catch (err) {
-      if (isExternalApiRequest && err.providerRawResponse) {
-        return res.status(HTTP_STATUS.OK).json(err.providerRawResponse);
+      const raw = err.providerRawResponse || err.transaction?.providerResponse;
+      if (isExternalApiRequest && raw) {
+        return res.status(HTTP_STATUS.OK).json(raw);
       }
       throw err;
     }
 
     const isSuccess = txn.status === 'SUCCESS';
+    const raw = txn.providerRawResponse || txn.providerResponse;
 
-    if (isExternalApiRequest && txn.providerRawResponse) {
-      return res.status(isSuccess ? HTTP_STATUS.CREATED : HTTP_STATUS.OK).json(txn.providerRawResponse);
+    if (isExternalApiRequest && raw) {
+      return res.status(isSuccess ? HTTP_STATUS.CREATED : HTTP_STATUS.OK).json(raw);
     }
 
     sendSuccess(res, {
