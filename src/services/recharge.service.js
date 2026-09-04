@@ -268,17 +268,11 @@ export const rechargeService = {
       const isRetryable = providerErr.isRetryable === true;
       const nextRetryAt = isRetryable ? calcNextRetryAt(0) : null;
 
-      await rechargeTransactionRepository.updateOne(
-        { txnId },
-        {
-          $set: {
-            status: TRANSACTION_STATUS.FAILED,
-            statusMessage: errMsg,
-            isRetryable,
-            nextRetryAt,
-          },
-        },
-      );
+      const failedTxn = await rechargeTransactionRepository.updateStatus(txnId, TRANSACTION_STATUS.FAILED, {
+        statusMessage: errMsg,
+        isRetryable,
+        nextRetryAt,
+      });
 
       await walletService.refundFromRecharge(wallet._id, amount, txnId, user._id);
       await rechargeTransactionRepository.updateOne(
@@ -295,7 +289,10 @@ export const rechargeService = {
         referenceId: txnId,
       }).catch(() => {});
 
-      throw new RechargeError(errMsg || 'Recharge failed. Amount has been refunded.');
+      const err = new RechargeError(errMsg || 'Recharge failed. Amount has been refunded.');
+      err.transaction = failedTxn;
+      err.providerRawResponse = providerErr.rawResponse ?? null;
+      throw err;
     }
 
     const finalStatus = providerResult.status;

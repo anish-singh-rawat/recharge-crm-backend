@@ -10,12 +10,23 @@ export const rechargeController = {
       userAgent: req.headers['user-agent'] || '',
       requestId: req.requestId,
     };
-    const txn = await rechargeService.initiateRecharge(req.body, req.user, requestMeta);
-    const isSuccess = txn.status === 'SUCCESS';
+
     const isExternalApiRequest = !!req.apiKey;
 
+    let txn;
+    try {
+      txn = await rechargeService.initiateRecharge(req.body, req.user, requestMeta);
+    } catch (err) {
+      if (isExternalApiRequest && err.providerRawResponse) {
+        return res.status(HTTP_STATUS.OK).json(err.providerRawResponse);
+      }
+      throw err;
+    }
+
+    const isSuccess = txn.status === 'SUCCESS';
+
     if (isExternalApiRequest && txn.providerRawResponse) {
-      return res.status(isSuccess ? HTTP_STATUS.CREATED : HTTP_STATUS.OK).json(txn.providerRawResponse,);
+      return res.status(isSuccess ? HTTP_STATUS.CREATED : HTTP_STATUS.OK).json(txn.providerRawResponse);
     }
 
     sendSuccess(res, {

@@ -85,6 +85,7 @@ export const authenticateApiKey = asyncHandler(async (req, res, next) => {
     permissions: apiKey.permissions?.length ? apiKey.permissions : (user.permissions || []),
     wallet: user.wallet,
     commissionRate: user.commissionRate || 0,
+    operatorCommissions: user.operatorCommissions || [],
     apiAccessEnabled: user.apiAccessEnabled || false,
   };
 
