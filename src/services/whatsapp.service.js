@@ -11,6 +11,7 @@ import makeWASocket, {
   Browsers,
 } from '@whiskeysockets/baileys';
 import logger from '../config/logger.js';
+import { getIO } from '../socket/socket.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -78,6 +79,7 @@ class WhatsAppService {
     this.isReady = false;
     this.latestQR = null;
     this.qrGeneratedAt = null;
+    this._qrWasShown = false;
     this._version = null;
     this.status = 'disconnected'; // 'disconnected' | 'launching' | 'qr_ready' | 'connecting' | 'connected'
     this.userPhone = null;
@@ -120,6 +122,14 @@ class WhatsAppService {
         logger.warn('[WhatsApp] Listener error:', err.message);
       }
     }
+
+    try {
+      const io = getIO();
+      if (io) {
+        io.to('admins').emit(`whatsapp:${event}`, payload);
+        io.to('admins').emit('whatsapp:status', payload);
+      }
+    } catch {}
   }
 
   async _ensureVersion() {
@@ -169,6 +179,31 @@ class WhatsAppService {
     } catch {}
   }
 
+  _waitForQR(timeoutMs = 5000) {
+    if (this.latestQR) return Promise.resolve(this.latestQR);
+    if (this.isReady || this.status === 'connected') return Promise.resolve(null);
+
+    return new Promise((resolve) => {
+      let unsubscribe;
+      const timer = setTimeout(() => {
+        if (unsubscribe) unsubscribe();
+        resolve(this.latestQR);
+      }, timeoutMs);
+
+      unsubscribe = this.subscribe((event, data) => {
+        if (event === 'qr' || data.qr) {
+          clearTimeout(timer);
+          if (unsubscribe) unsubscribe();
+          resolve(data.qr || this.latestQR);
+        } else if (event === 'connected' || data.status === 'connected') {
+          clearTimeout(timer);
+          if (unsubscribe) unsubscribe();
+          resolve(null);
+        }
+      });
+    });
+  }
+
   async init(autoStart = false) {
     if (this.sock && this.status === 'connected') {
       return this.getStatus();
@@ -191,6 +226,9 @@ class WhatsAppService {
     this._notifyListeners('status', { status: this.status });
 
     await this._createSocket();
+    if (!autoStart) {
+      await this._waitForQR(5000);
+    }
     return this.getStatus();
   }
 
@@ -218,6 +256,7 @@ class WhatsAppService {
     this._notifyListeners('status', { status: 'launching', qr: null });
 
     await this._createSocket();
+    await this._waitForQR(5000);
     return this.getStatus();
   }
 
@@ -235,8 +274,8 @@ class WhatsAppService {
     const version = this._version || [2, 3000, 1043857760];
     const socketId = ++this._socketId;
 
-    // Standard WhatsApp Web browser identity
-    const browserIdentity = Browsers?.macOS ? Browsers.macOS('Chrome') : ['Mac OS', 'Chrome', '124.0.0.0'];
+    // Use exact browser signature from wpp-connection for fast pairing
+    const browserIdentity = ['WhatsApp', 'Chrome', '3.0'];
 
     const sock = makeWASocket({
       version,
@@ -248,21 +287,30 @@ class WhatsAppService {
       browser: browserIdentity,
       printQRInTerminal: false,
       keepAliveIntervalMs: 25_000,
-      retryRequestDelayMs: 2_500,
-      markOnlineOnConnect: true,
+      retryRequestDelayMs: 2_000,
+      markOnlineOnConnect: false,
       generateHighQualityLinkPreview: false,
       syncFullHistory: false,
       fireInitQueries: true,
-      maxMsgRetryCount: 5,
-      connectTimeoutMs: 60_000,
-      defaultQueryTimeoutMs: 60_000,
+      maxMsgRetryCount: 3,
       emitOwnEvents: true,
       patchMessageBeforeSending: (message) => message,
     });
 
     this.sock = sock;
 
-    sock.ev.on('creds.update', saveCreds);
+    sock.ev.on('creds.update', async (update) => {
+      await saveCreds();
+
+      // When the mobile phone scans the QR, Baileys emits creds.update
+      if (!this.isReady && (this.status === 'qr_ready' || this.latestQR || this._qrWasShown)) {
+        logger.info('[WhatsApp] 📱 QR code scanned by mobile phone! Switching to connecting state...');
+        this.status = 'connecting';
+        this.latestQR = null;
+        if (this._qrExpireTimer) clearTimeout(this._qrExpireTimer);
+        this._notifyListeners('status', { status: 'connecting', isScanning: true, qr: null });
+      }
+    });
 
     sock.ev.on('connection.update', async (update) => {
       if (socketId !== this._socketId) return;
@@ -274,6 +322,7 @@ class WhatsAppService {
           const base64Png = await QRCode.toDataURL(qr, { scale: 6 });
           this.latestQR = base64Png;
           this.qrGeneratedAt = Date.now();
+          this._qrWasShown = true;
           this.status = 'qr_ready';
           this.isReady = false;
           this._reconnectAttempt = 0;
@@ -303,16 +352,21 @@ class WhatsAppService {
         }
       }
 
-      if (connection === 'connecting') {
-        this.status = 'connecting';
-        logger.info('[WhatsApp] Connecting...');
-        this._notifyListeners('status', { status: this.status });
+      if (connection === 'connecting' || update.isNewLogin || update.isOnline || update.receivedPendingNotifications) {
+        if (!this.isReady && (this.status === 'qr_ready' || this.latestQR || this._qrWasShown)) {
+          logger.info('[WhatsApp] 📱 Connection update: QR scanned! Setting status to connecting...');
+          this.status = 'connecting';
+          this.latestQR = null;
+          if (this._qrExpireTimer) clearTimeout(this._qrExpireTimer);
+          this._notifyListeners('status', { status: 'connecting', isScanning: true, qr: null });
+        }
       }
 
       if (connection === 'open') {
         this.isReady = true;
         this.latestQR = null;
         this.qrGeneratedAt = null;
+        this._qrWasShown = false;
         this.status = 'connected';
         this._reconnectAttempt = 0;
 
@@ -344,6 +398,7 @@ class WhatsAppService {
         if (this.destroyed) {
           this.status = 'disconnected';
           this.userPhone = null;
+          this._qrWasShown = false;
           this._notifyListeners('status', { status: this.status });
           return;
         }
@@ -353,12 +408,26 @@ class WhatsAppService {
           this._clearAuth();
           this.status = 'disconnected';
           this.userPhone = null;
+          this._qrWasShown = false;
           this._notifyListeners('status', { status: this.status });
           return;
         }
 
+        // 515 restartRequired is the exact signal Baileys emits when a phone scans the QR code
+        if (statusCode === DisconnectReason.restartRequired) {
+          logger.info('[WhatsApp] 📱 Phone scanned QR code! (Restart required 515) Reopening socket in connecting mode...');
+          this.status = 'connecting';
+          this.latestQR = null;
+          this._notifyListeners('status', { status: 'connecting', isScanning: true, qr: null });
+          setTimeout(() => {
+            if (socketId === this._socketId && !this.destroyed) {
+              this._createSocket();
+            }
+          }, 1500);
+          return;
+        }
+
         const shouldReconnect = [
-          DisconnectReason.restartRequired,   // 515
           DisconnectReason.connectionLost,     // 408
           DisconnectReason.timedOut,           // 408
           DisconnectReason.connectionClosed,   // 428
@@ -378,6 +447,7 @@ class WhatsAppService {
           logger.warn(`[WhatsApp] Not reconnecting (code: ${statusCode}, attempts: ${this._reconnectAttempt})`);
           this.status = 'disconnected';
           this.userPhone = null;
+          this._qrWasShown = false;
           this._notifyListeners('status', { status: this.status });
         }
       }
@@ -509,33 +579,97 @@ class WhatsAppService {
   }
 
   async disconnect() {
+    logger.info('[WhatsApp] Full disconnect and unpair requested by user.');
+    this._clearTimers();
+
+    // If socket is not currently ready but we have stored credentials, attempt a quick connect to unlink
+    if ((!this.sock || !this.isReady) && this.hasSessionFiles()) {
+      try {
+        logger.info('[WhatsApp] Reconnecting temporary socket to unlink companion device from WhatsApp server...');
+        this.destroyed = false;
+        await this._createSocket();
+        const start = Date.now();
+        while (!this.isReady && Date.now() - start < 3500) {
+          await sleep(200);
+        }
+      } catch (err) {
+        logger.warn(`[WhatsApp] Temporary socket connection failed: ${err.message}`);
+      }
+    }
+
+    if (this.sock) {
+      const jid = this.sock.user?.id || this.sock.authState?.creds?.me?.id;
+      logger.info(`[WhatsApp] Unlinking device for JID: ${jid || 'unknown'}...`);
+
+      // 1. Send remove-companion-device IQ to WhatsApp server so the device is unlinked on the user's phone
+      if (jid) {
+        try {
+          await Promise.race([
+            this.sock.query({
+              tag: 'iq',
+              attrs: {
+                to: 's.whatsapp.net',
+                type: 'set',
+                xmlns: 'md',
+              },
+              content: [
+                {
+                  tag: 'remove-companion-device',
+                  attrs: {
+                    jid,
+                    reason: 'user_initiated',
+                  },
+                },
+              ],
+            }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Unlink IQ timeout (4s)')), 4000)),
+          ]);
+          logger.info('[WhatsApp] Device unlinked from WhatsApp server successfully ✓');
+        } catch (err) {
+          logger.warn(`[WhatsApp] Unlink IQ notice: ${err.message}`);
+        }
+      }
+
+      // 2. Call sock.logout() to finalize unregistration with Baileys
+      try {
+        await Promise.race([
+          this.sock.logout('User initiated disconnect'),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Logout timeout (3s)')), 3000)),
+        ]);
+        logger.info('[WhatsApp] Baileys sock.logout completed.');
+      } catch (err) {
+        logger.warn(`[WhatsApp] sock.logout notice: ${err.message}`);
+      }
+
+      // Allow 500ms for WhatsApp servers to push unpair notification to the user's phone
+      await sleep(500);
+
+      this._closeSocket(this.sock);
+      this.sock = null;
+    }
+
     this.destroyed = true;
     this.isReady = false;
     this.status = 'disconnected';
     this.latestQR = null;
     this.qrGeneratedAt = null;
     this.userPhone = null;
+    this._qrWasShown = false;
 
-    this._clearTimers();
-
-    if (this.sock) {
-      try {
-        await this.sock.logout().catch(() => {});
-      } catch {}
-      this._closeSocket(this.sock);
-      this.sock = null;
-    }
-
+    // Remove all session credentials from disk
+    await sleep(200);
     this._clearAuth();
-    this._notifyListeners('status', { status: 'disconnected', qr: null });
-    logger.info('[WhatsApp] Disconnected and session cleared.');
-    return { success: true, message: 'WhatsApp session disconnected and removed.' };
+
+    this._notifyListeners('status', { status: 'disconnected', qr: null, userPhone: null });
+    logger.info('[WhatsApp] WhatsApp completely disconnected, unlinked from phone, and session cleared.');
+    return { success: true, message: 'WhatsApp session unlinked and removed successfully.' };
   }
 
   _clearAuth() {
     try {
       if (fs.existsSync(this.sessionPath)) {
         fs.rmSync(this.sessionPath, { recursive: true, force: true });
+        logger.info('[WhatsApp] Session directory removed from disk.');
       }
     } catch (err) {
       logger.warn(`[WhatsApp] Could not clear auth folder: ${err.message}`);

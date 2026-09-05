@@ -1,7 +1,7 @@
 import { whatsappService } from '../services/whatsapp.service.js';
 import { sendSuccess } from '../utils/response.util.js';
 import { asyncHandler } from '../utils/async.util.js';
-import { verifyAccessToken } from '../utils/jwt.util.js';
+import { verifyAccessToken, verifyRefreshToken } from '../utils/jwt.util.js';
 import { User } from '../models/index.js';
 import { ROLES } from '../constants/roles.js';
 import logger from '../config/logger.js';
@@ -54,15 +54,24 @@ export const whatsappController = {
       || req.headers.authorization?.replace('Bearer ', '').trim()
       || req.cookies?.accessToken;
 
-    if (!token) {
-      return res.status(401).json({ success: false, message: 'Access token required' });
+    const refreshToken = req.query.refreshToken || req.cookies?.refreshToken;
+
+    let decoded = null;
+
+    if (token) {
+      try {
+        decoded = verifyAccessToken(token);
+      } catch (_) {}
     }
 
-    // Verify token and check role
-    let decoded;
-    try {
-      decoded = verifyAccessToken(token);
-    } catch (err) {
+    // If query token expired, check refreshToken
+    if (!decoded && refreshToken) {
+      try {
+        decoded = verifyRefreshToken(refreshToken);
+      } catch (_) {}
+    }
+
+    if (!decoded) {
       return res.status(401).json({ success: false, message: 'Invalid or expired token' });
     }
 
