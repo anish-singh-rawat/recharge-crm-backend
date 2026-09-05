@@ -9,17 +9,33 @@ export const addDays = (date, days) =>
 
 export const isExpired = (date) => date && new Date(date) < new Date();
 
-export const startOfDay = (date = new Date()) => {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
+export const DEFAULT_TIMEZONE = 'Asia/Kolkata';
+
+export const getISTStartOfDay = (date = new Date(), timeZone = DEFAULT_TIMEZONE) => {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const dateStr = formatter.format(date instanceof Date ? date : new Date(date));
+  return new Date(`${dateStr}T00:00:00.000+05:30`);
 };
 
-export const endOfDay = (date = new Date()) => {
-  const d = new Date(date);
-  d.setHours(23, 59, 59, 999);
-  return d;
+export const getISTEndOfDay = (date = new Date(), timeZone = DEFAULT_TIMEZONE) => {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const dateStr = formatter.format(date instanceof Date ? date : new Date(date));
+  return new Date(`${dateStr}T23:59:59.999+05:30`);
 };
+
+export const startOfDay = (date = new Date()) => getISTStartOfDay(date);
+
+export const endOfDay = (date = new Date()) => getISTEndOfDay(date);
 
 export const toDateString = (date = new Date()) =>
   new Date(date).toISOString().slice(0, 10);

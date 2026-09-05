@@ -2,6 +2,7 @@ import { rechargeTransactionRepository } from '../repositories/recharge.reposito
 import { walletTransactionRepository } from '../repositories/wallet.repository.js';
 import { buildListQuery } from '../helpers/query.helper.js';
 import { buildDateRangeFilter } from '../utils/pagination.util.js';
+import { startOfDay, endOfDay } from '../utils/date.util.js';
 import { TRANSACTION_STATUS } from '../constants/transaction.js';
 import mongoose from 'mongoose';
 
@@ -82,13 +83,13 @@ export const reportService = {
 
   async getDashboardStats(userId = null, role = 'admin') {
     const baseFilter = userId && role === 'retailer' ? { user: new mongoose.Types.ObjectId(userId) } : {};
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+    const todayStart = startOfDay();
+    const todayEnd = endOfDay();
 
     const [todayStats, allTimeStats, statusBreakdown] = await Promise.all([
       rechargeTransactionRepository.getSalesSummary({
         ...baseFilter,
-        createdAt: { $gte: todayStart },
+        createdAt: { $gte: todayStart, $lte: todayEnd },
       }),
       rechargeTransactionRepository.getSalesSummary(baseFilter),
       rechargeTransactionRepository.aggregate([

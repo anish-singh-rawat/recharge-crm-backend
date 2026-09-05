@@ -1,4 +1,5 @@
 import env from '../config/env.js';
+import { getISTStartOfDay, getISTEndOfDay } from './date.util.js';
 
 export const parsePagination = (query = {}) => {
   const page = Math.max(1, parseInt(query.page, 10) || 1);
@@ -20,15 +21,31 @@ export const parseSort = (sortStr, allowedFields = {}, defaultSort = { createdAt
   return Object.keys(sort).length ? sort : defaultSort;
 };
 
+export const parseISTDate = (dateVal, isEndOfDay = false) => {
+  if (!dateVal) return null;
+  if (dateVal instanceof Date) {
+    return isEndOfDay ? getISTEndOfDay(dateVal) : getISTStartOfDay(dateVal);
+  }
+  const str = String(dateVal).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    return new Date(`${str}T${isEndOfDay ? '23:59:59.999' : '00:00:00.000'}+05:30`);
+  }
+  const d = new Date(str);
+  if (isNaN(d.getTime())) return null;
+  return d;
+};
+
 export const buildDateRangeFilter = (startDate, endDate, field = 'createdAt') => {
   const filter = {};
   if (startDate || endDate) {
     filter[field] = {};
-    if (startDate) filter[field].$gte = new Date(startDate);
+    if (startDate) {
+      const start = parseISTDate(startDate, false);
+      if (start) filter[field].$gte = start;
+    }
     if (endDate) {
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
-      filter[field].$lte = end;
+      const end = parseISTDate(endDate, true);
+      if (end) filter[field].$lte = end;
     }
   }
   return filter;

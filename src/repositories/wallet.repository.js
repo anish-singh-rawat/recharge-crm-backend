@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { Wallet, WalletTransaction } from '../models/index.js';
 import { BaseRepository } from './base.repository.js';
 import { DatabaseError } from '../helpers/error.helper.js';
+import { parseISTDate } from '../utils/pagination.util.js';
 import logger from '../config/logger.js';
 
 class WalletRepository extends BaseRepository {
@@ -156,8 +157,14 @@ class WalletTransactionRepository extends BaseRepository {
     const match = { wallet: new mongoose.Types.ObjectId(walletId) };
     if (startDate || endDate) {
       match.createdAt = {};
-      if (startDate) match.createdAt.$gte = new Date(startDate);
-      if (endDate) match.createdAt.$lte = new Date(endDate);
+      if (startDate) {
+        const start = parseISTDate(startDate, false);
+        if (start) match.createdAt.$gte = start;
+      }
+      if (endDate) {
+        const end = parseISTDate(endDate, true);
+        if (end) match.createdAt.$lte = end;
+      }
     }
 
     return WalletTransaction.aggregate([

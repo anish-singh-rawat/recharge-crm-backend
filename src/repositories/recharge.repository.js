@@ -193,9 +193,9 @@ class RechargeTransactionRepository extends BaseRepository {
       {
         $group: {
           _id: {
-            year: { $year: '$createdAt' },
-            month: { $month: '$createdAt' },
-            day: { $dayOfMonth: '$createdAt' },
+            year: { $year: { date: '$createdAt', timezone: '+05:30' } },
+            month: { $month: { date: '$createdAt', timezone: '+05:30' } },
+            day: { $dayOfMonth: { date: '$createdAt', timezone: '+05:30' } },
           },
           count: { $sum: 1 },
           amount: {
