@@ -6,6 +6,7 @@ node_modules/
 .env.test.local
 logs/
 uploads/
+sessions/
 coverage/
 build/
 dist/
