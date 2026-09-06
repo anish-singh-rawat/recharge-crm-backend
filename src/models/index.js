@@ -15,3 +15,5 @@ export { default as AuditLog } from './AuditLog.model.js';
 export { default as WebhookLog } from './WebhookLog.model.js';
 export { default as Setting } from './Setting.model.js';
 export { default as ApiKey } from './ApiKey.model.js';
+export { default as PartnerUser } from './PartnerUser.model.js';
+export { default as PartnerOrder } from './PartnerOrder.model.js';

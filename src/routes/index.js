@@ -12,6 +12,7 @@ import providerRoutes from './provider.routes.js';
 import healthRoutes from './health.routes.js';
 import externalRoutes from './external.routes.js';
 import whatsappRoutes from './whatsapp.routes.js';
+import partnerOrderRoutes from './partnerOrder.routes.js';
 
 const router = Router();
 
@@ -28,5 +29,6 @@ router.use('/settings', settingRoutes);
 router.use('/provider', providerRoutes);
 router.use('/ext', externalRoutes);
 router.use('/whatsapp', whatsappRoutes);
+router.use('/partner-orders', partnerOrderRoutes);
 
 export default router;
