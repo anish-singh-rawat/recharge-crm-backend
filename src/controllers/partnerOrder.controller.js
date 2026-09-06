@@ -51,6 +51,15 @@ export const partnerOrderController = {
     });
   }),
 
+  bulkMarkAsPaid: asyncHandler(async (req, res) => {
+    const { orderIds } = req.body;
+    const result = await partnerOrderService.bulkMarkAsPaid(orderIds);
+    sendSuccess(res, {
+      message: `${result.updated} order(s) marked as fully paid.`,
+      data: result,
+    });
+  }),
+
   getSummary: asyncHandler(async (req, res) => {
     const summary = await partnerOrderService.getSummary();
     sendSuccess(res, {

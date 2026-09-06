@@ -16,6 +16,7 @@ router.get('/', partnerOrderController.listOrders);
 router.get('/summary', partnerOrderController.getSummary);
 router.patch('/partner/:prmId/mobile', partnerOrderController.updatePartnerMobile);
 router.patch('/:id/payment', partnerOrderController.updateOrderPayment);
+router.patch('/bulk-mark-paid', partnerOrderController.bulkMarkAsPaid);
 router.post('/send-notifications', partnerOrderController.sendNotifications);
 
 export default router;

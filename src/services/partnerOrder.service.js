@@ -40,7 +40,6 @@ class PartnerOrderService {
       throw new BusinessError('Excel spreadsheet has insufficient rows.');
     }
 
-    // Dynamic header detector: Search first 15 rows for the row containing required column names
     let headerRowIndex = -1;
     let colIndexMap = {};
 
@@ -68,7 +67,6 @@ class PartnerOrderService {
         }
       });
 
-      // We consider it the header row if at least orderId, partnerPrmId, and orderAmount are found
       if (tempMap.orderId !== undefined && tempMap.partnerPrmId !== undefined && tempMap.orderAmount !== undefined) {
         headerRowIndex = r;
         colIndexMap = tempMap;
@@ -84,7 +82,6 @@ class PartnerOrderService {
 
     logger.info(`[PartnerOrder] Header detected at row ${headerRowIndex + 1}:`, colIndexMap);
 
-    // Extract ONLY the 6 allowed columns from subsequent rows
     const sanitizedRows = [];
     const uniquePrmMap = new Map(); // prmId -> partnerName
 
@@ -103,16 +100,13 @@ class PartnerOrderService {
       const partnerPrmId = String(rawPrmId || '').trim();
       const partnerName = String(rawPartnerName || '').trim();
 
-      // Skip row if essential keys are missing
       if (!orderId || !partnerPrmId) continue;
 
-      // Clean and parse order amount
       const cleanAmtStr = String(rawAmount || '')
         .replace(/,/g, '')
         .replace(/[^0-9.-]/g, '');
       const orderAmount = parseFloat(cleanAmtStr) || 0;
 
-      // Format date if needed
       let orderDate = '';
       if (rawDate instanceof Date) {
         orderDate = rawDate.toLocaleDateString('en-GB'); // DD/MM/YYYY
@@ -290,6 +284,32 @@ class PartnerOrderService {
     await order.save();
 
     return order;
+  }
+
+  async bulkMarkAsPaid(orderIds) {
+    if (!Array.isArray(orderIds) || orderIds.length === 0) {
+      throw new BusinessError('Please provide at least one order ID.');
+    }
+
+    // Fetch all matching orders
+    const orders = await PartnerOrder.find({ _id: { $in: orderIds } });
+
+    if (orders.length === 0) {
+      throw new BusinessError('No matching orders found.');
+    }
+
+    // Set paidAmount = orderAmount for each so dueAmount becomes 0 via pre-save hook
+    for (const order of orders) {
+      order.paidAmount = order.orderAmount;
+      await order.save();
+    }
+
+    logger.info(`[PartnerOrder] Bulk mark paid: ${orders.length} orders marked as paid.`);
+
+    return {
+      updated: orders.length,
+      orderIds: orders.map((o) => o._id),
+    };
   }
 
   async getSummary() {
