@@ -167,7 +167,22 @@ async function callProviderWithFallback({ mobileNumber, amount, operator, circle
 }
 
 export const rechargeService = {
-  async initiateRecharge({ mobileNumber, amount, operatorId, circleId, type }, user, requestMeta = {}) {
+  async initiateRecharge({ mobileNumber, amount, operatorId, circleId, type, clientTxnId }, user, requestMeta = {}) {
+    const cleanClientTxnId = clientTxnId ? String(clientTxnId).trim() : null;
+
+    if (cleanClientTxnId) {
+      const existingTxnWithClientTxnId = await rechargeTransactionRepository.model.findOne({
+        user: user._id,
+        clientTxnId: cleanClientTxnId,
+      }).lean();
+
+      if (existingTxnWithClientTxnId) {
+        throw new RechargeError(
+          `Duplicate clientTxnId. Transaction with ID '${cleanClientTxnId}' already exists for your account.`
+        );
+      }
+    }
+
     const operator = await operatorRepository.findById(operatorId);
     if (!operator || !operator.isActive) throw new RechargeError('Invalid or inactive operator');
 
@@ -213,6 +228,7 @@ export const rechargeService = {
 
     await rechargeTransactionRepository.create({
       txnId,
+      clientTxnId: cleanClientTxnId,
       correlationId,
       user: user._id,
       wallet: wallet._id,
@@ -352,25 +368,28 @@ export const rechargeService = {
   },
 
   async getStatus(txnId, userId = null) {
-    const txn = await rechargeTransactionRepository.findByTxnIdFull(txnId);
+    const txn = await rechargeTransactionRepository.findByTxnIdFull(txnId, userId);
     if (!txn) throw new NotFoundError('Transaction not found');
-    if (userId && txn.user.toString() !== userId.toString()) {
-      throw new NotFoundError('Transaction not found');
+    if (userId) {
+      const txnUserId = txn.user?._id?.toString() || txn.user?.toString();
+      if (txnUserId && txnUserId !== userId.toString()) {
+        throw new NotFoundError('Transaction not found');
+      }
     }
 
     if ([TRANSACTION_STATUS.PENDING, TRANSACTION_STATUS.PROCESSING].includes(txn.status)) {
       try {
         const provider = txn.usedProvider === 'realrobo' ? realroboProvider : mroboticsProvider;
-        const statusResult = await provider.checkStatus(txnId);
+        const statusResult = await provider.checkStatus(txn.txnId);
         if (statusResult.status !== txn.status) {
-          await rechargeTransactionRepository.updateStatus(txnId, statusResult.status, {
+          await rechargeTransactionRepository.updateStatus(txn.txnId, statusResult.status, {
             providerStatus: statusResult.providerStatus,
             providerMessage: statusResult.message,
           });
           txn.status = statusResult.status;
         }
       } catch (err) {
-        rechargeLogger.warn('Status check from provider failed', { txnId, error: err.message });
+        rechargeLogger.warn('Status check from provider failed', { txnId: txn.txnId, error: err.message });
       }
     }
 

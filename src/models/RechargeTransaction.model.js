@@ -9,6 +9,11 @@ const rechargeTransactionSchema = new mongoose.Schema(
       unique: true,
       trim: true,
     },
+    clientTxnId: {
+      type: String,
+      trim: true,
+      default: null,
+    },
     correlationId: {
       type: String,
       trim: true,
@@ -201,6 +206,10 @@ const rechargeTransactionSchema = new mongoose.Schema(
 
 rechargeTransactionSchema.index({ user: 1, createdAt: -1 });
 rechargeTransactionSchema.index({ user: 1, status: 1, commission: 1 });
+rechargeTransactionSchema.index(
+  { user: 1, clientTxnId: 1 },
+  { unique: true, sparse: true, partialFilterExpression: { clientTxnId: { $type: 'string' } } }
+);
 rechargeTransactionSchema.index({ mobileNumber: 1, createdAt: -1 });
 rechargeTransactionSchema.index({ status: 1, createdAt: -1 });
 rechargeTransactionSchema.index({ providerTxnId: 1 });
