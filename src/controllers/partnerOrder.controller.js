@@ -60,6 +60,24 @@ export const partnerOrderController = {
     });
   }),
 
+  deleteOrder: asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const result = await partnerOrderService.deleteOrder(id);
+    sendSuccess(res, {
+      message: 'Order deleted successfully',
+      data: result,
+    });
+  }),
+
+  bulkDelete: asyncHandler(async (req, res) => {
+    const orderIds = req.body.orderIds || [];
+    const result = await partnerOrderService.bulkDelete(orderIds);
+    sendSuccess(res, {
+      message: `${result.deletedCount} order(s) deleted successfully`,
+      data: result,
+    });
+  }),
+
   getSummary: asyncHandler(async (req, res) => {
     const summary = await partnerOrderService.getSummary();
     sendSuccess(res, {

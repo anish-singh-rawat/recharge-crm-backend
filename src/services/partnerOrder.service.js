@@ -14,6 +14,47 @@ function normalizeHeader(str) {
     .replace(/[^a-z0-9]/g, '');
 }
 
+export function formatOrderTime(rawTime) {
+  if (!rawTime && rawTime !== 0) return '';
+  const str = String(rawTime).trim();
+  if (!str) return '';
+
+  // If already contains colons like "04:12:07 AM" or "15:13:13"
+  if (str.includes(':')) {
+    const match = str.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(AM|PM))?$/i);
+    if (match) {
+      let [_, h, m, s, period] = match;
+      s = s || '00';
+      if (!period) {
+        let hour = parseInt(h, 10);
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        hour = hour % 12 || 12;
+        return `${hour}:${m}:${s} ${ampm}`;
+      }
+      return `${parseInt(h, 10)}:${m}:${s} ${period.toUpperCase()}`;
+    }
+    return str;
+  }
+
+  // Pure digits: e.g. 41207 (4:12:07 AM) or 151313 (3:13:13 PM)
+  if (/^\d+$/.test(str)) {
+    const padded = str.padStart(6, '0');
+    if (padded.length === 6) {
+      const hour24 = parseInt(padded.slice(0, 2), 10);
+      const min = padded.slice(2, 4);
+      const sec = padded.slice(4, 6);
+
+      if (hour24 >= 0 && hour24 < 24 && parseInt(min, 10) < 60 && parseInt(sec, 10) < 60) {
+        const ampm = hour24 >= 12 ? 'PM' : 'AM';
+        const displayHour = hour24 % 12 || 12;
+        return `${displayHour}:${min}:${sec} ${ampm}`;
+      }
+    }
+  }
+
+  return str;
+}
+
 class PartnerOrderService {
 
   async importExcel(buffer) {
@@ -114,7 +155,7 @@ class PartnerOrderService {
         orderDate = String(rawDate || '').trim();
       }
 
-      const orderTime = String(rawTime || '').trim();
+      const orderTime = formatOrderTime(rawTime);
 
       sanitizedRows.push({
         orderId,
@@ -248,6 +289,7 @@ class PartnerOrderService {
         page: pageNum,
         limit: limitNum,
         pages: Math.ceil(total / limitNum) || 1,
+        totalPages: Math.ceil(total / limitNum) || 1,
       },
     };
   }
@@ -309,6 +351,33 @@ class PartnerOrderService {
     return {
       updated: orders.length,
       orderIds: orders.map((o) => o._id),
+    };
+  }
+
+  async deleteOrder(id) {
+    const order = await PartnerOrder.findByIdAndDelete(id);
+    if (!order) {
+      throw new BusinessError('Order not found or already deleted');
+    }
+    logger.info(`[PartnerOrder] Deleted order ID: ${order.orderId} (${id})`);
+    return {
+      deleted: true,
+      orderId: order.orderId,
+      id: order._id,
+    };
+  }
+
+  async bulkDelete(orderIds) {
+    if (!Array.isArray(orderIds) || orderIds.length === 0) {
+      throw new BusinessError('Please provide at least one order ID to delete.');
+    }
+
+    const result = await PartnerOrder.deleteMany({ _id: { $in: orderIds } });
+    logger.info(`[PartnerOrder] Bulk deleted ${result.deletedCount} orders.`);
+
+    return {
+      deletedCount: result.deletedCount,
+      orderIds,
     };
   }
 
@@ -394,7 +463,7 @@ class PartnerOrderService {
         .replace(/{paidAmount}/g, `₹${(order.paidAmount || 0).toFixed(2)}`)
         .replace(/{dueAmount}/g, `₹${order.dueAmount.toFixed(2)}`)
         .replace(/{orderDate}/g, order.orderDate || '')
-        .replace(/{orderTime}/g, order.orderTime || '')
+        .replace(/{orderTime}/g, formatOrderTime(order.orderTime) || '')
         .replace(/{partnerPrmId}/g, order.partnerPrmId || '');
 
       queueItems.push({

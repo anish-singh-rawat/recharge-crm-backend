@@ -17,6 +17,9 @@ router.get('/summary', partnerOrderController.getSummary);
 router.patch('/partner/:prmId/mobile', partnerOrderController.updatePartnerMobile);
 router.patch('/:id/payment', partnerOrderController.updateOrderPayment);
 router.patch('/bulk-mark-paid', partnerOrderController.bulkMarkAsPaid);
+router.post('/bulk-delete', partnerOrderController.bulkDelete);
+router.delete('/bulk-delete', partnerOrderController.bulkDelete);
+router.delete('/:id', partnerOrderController.deleteOrder);
 router.post('/send-notifications', partnerOrderController.sendNotifications);
 
 export default router;
