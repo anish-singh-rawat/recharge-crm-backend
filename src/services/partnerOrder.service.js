@@ -325,6 +325,56 @@ class PartnerOrderService {
     order.paidAmount = numericPaid;
     await order.save();
 
+    // Automatically send WhatsApp payment receipt to customer if payment was received
+    if (numericPaid > 0) {
+      try {
+        const partner = await PartnerUser.findOne({ partnerPrmId: order.partnerPrmId }).lean();
+        const rawMobile = partner?.mobileNumber || '';
+        let cleanMobile = String(rawMobile).replace(/[^0-9]/g, '');
+        if (cleanMobile.length === 10) cleanMobile = '91' + cleanMobile;
+
+        if (cleanMobile && cleanMobile.length >= 12) {
+          const partnerDisplayName = order.partnerName || partner?.partnerName || 'Partner';
+          const orderDateStr = order.orderDate || '';
+          const orderTimeStr = formatOrderTime(order.orderTime) || '';
+          const dateLine = orderTimeStr ? `${orderDateStr} ${orderTimeStr}`.trim() : orderDateStr;
+          const statusText = order.paymentStatus === 'paid' ? 'PAID ✅' : 'PARTIALLY PAID 🟡';
+
+          const receiptMsg =
+            `✅ *Payment Received Confirmation*\n\n` +
+            `Dear *${partnerDisplayName}*,\n` +
+            `We have successfully recorded your payment towards Order *#${order.orderId}*.\n\n` +
+            `📋 *Order Details:*\n` +
+            `• *Order ID:* ${order.orderId}\n` +
+            `• *PRM ID:* ${order.partnerPrmId}\n` +
+            (dateLine ? `• *Order Date:* ${dateLine}\n` : '') +
+            `\n💰 *Payment Summary:*\n` +
+            `• *Total Order Amount:* ₹${order.orderAmount.toFixed(2)}\n` +
+            `• *Amount Paid:* ₹${order.paidAmount.toFixed(2)}\n` +
+            `• *Remaining Due:* ₹${order.dueAmount.toFixed(2)}\n` +
+            `• *Payment Status:* ${statusText}\n\n` +
+            `Thank you for your business! 🙏`;
+
+          // Process through anti-ban queue in background
+          this._processNotificationQueue([{
+            orderId: order._id,
+            orderIdStr: order.orderId,
+            partnerPrmId: order.partnerPrmId,
+            partnerName: order.partnerName,
+            dueAmount: order.dueAmount,
+            mobileNumber: cleanMobile,
+            message: receiptMsg,
+          }]).catch((err) => {
+            logger.error(`[PartnerOrder] Auto WhatsApp receipt error for order ${order.orderId}: ${err.message}`);
+          });
+        } else {
+          logger.info(`[PartnerOrder] No valid mobile number found for partner ${order.partnerPrmId}, skipping auto WhatsApp receipt.`);
+        }
+      } catch (err) {
+        logger.error(`[PartnerOrder] Error triggering auto WhatsApp payment receipt: ${err.message}`);
+      }
+    }
+
     return order;
   }
 
@@ -347,6 +397,62 @@ class PartnerOrderService {
     }
 
     logger.info(`[PartnerOrder] Bulk mark paid: ${orders.length} orders marked as paid.`);
+
+    // Automatically send WhatsApp payment receipts to customers
+    try {
+      const prmIds = [...new Set(orders.map((o) => o.partnerPrmId))];
+      const partners = await PartnerUser.find({ partnerPrmId: { $in: prmIds } }).lean();
+      const partnerMap = new Map(partners.map((p) => [p.partnerPrmId, p]));
+
+      const queueItems = [];
+      for (const order of orders) {
+        const partner = partnerMap.get(order.partnerPrmId);
+        const rawMobile = partner?.mobileNumber || '';
+        let cleanMobile = String(rawMobile).replace(/[^0-9]/g, '');
+        if (cleanMobile.length === 10) cleanMobile = '91' + cleanMobile;
+
+        if (cleanMobile && cleanMobile.length >= 12) {
+          const partnerDisplayName = order.partnerName || partner?.partnerName || 'Partner';
+          const orderDateStr = order.orderDate || '';
+          const orderTimeStr = formatOrderTime(order.orderTime) || '';
+          const dateLine = orderTimeStr ? `${orderDateStr} ${orderTimeStr}`.trim() : orderDateStr;
+
+          const receiptMsg =
+            `✅ *Payment Received Confirmation*\n\n` +
+            `Dear *${partnerDisplayName}*,\n` +
+            `Your payment for Order *#${order.orderId}* has been received and marked as *PAID*.\n\n` +
+            `📋 *Order Details:*\n` +
+            `• *Order ID:* ${order.orderId}\n` +
+            `• *PRM ID:* ${order.partnerPrmId}\n` +
+            (dateLine ? `• *Order Date:* ${dateLine}\n` : '') +
+            `\n💰 *Payment Summary:*\n` +
+            `• *Total Order Amount:* ₹${order.orderAmount.toFixed(2)}\n` +
+            `• *Amount Paid:* ₹${order.paidAmount.toFixed(2)}\n` +
+            `• *Remaining Due:* ₹0.00\n` +
+            `• *Payment Status:* PAID ✅\n\n` +
+            `Thank you for your business! 🙏`;
+
+          queueItems.push({
+            orderId: order._id,
+            orderIdStr: order.orderId,
+            partnerPrmId: order.partnerPrmId,
+            partnerName: order.partnerName,
+            dueAmount: 0,
+            mobileNumber: cleanMobile,
+            message: receiptMsg,
+          });
+        }
+      }
+
+      if (queueItems.length > 0) {
+        this._processNotificationQueue(queueItems).catch((err) => {
+          logger.error(`[PartnerOrder] Bulk mark paid WhatsApp error: ${err.message}`);
+        });
+        logger.info(`[PartnerOrder] Queued ${queueItems.length} WhatsApp receipts for bulk paid orders.`);
+      }
+    } catch (err) {
+      logger.error(`[PartnerOrder] Error dispatching bulk paid WhatsApp receipts: ${err.message}`);
+    }
 
     return {
       updated: orders.length,
