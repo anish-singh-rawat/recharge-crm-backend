@@ -1,17 +1,18 @@
-import { Router } from 'express';
-import { rechargeController } from '../controllers/recharge.controller.js';
-import { authenticateApiKey } from '../middlewares/authenticateApiKey.middleware.js';
-import { requireApiAccess } from '../middlewares/requireApiAccess.middleware.js';
-import { authorizePermissions } from '../middlewares/authorize.middleware.js';
-import { rechargeRateLimiter } from '../middlewares/rateLimiter.middleware.js';
+import { Router } from "express";
+import { rechargeController } from "../controllers/recharge.controller.js";
+import { authenticateApiKey } from "../middlewares/authenticateApiKey.middleware.js";
+import { requireApiAccess } from "../middlewares/requireApiAccess.middleware.js";
+import { authorizePermissions } from "../middlewares/authorize.middleware.js";
+import { rechargeRateLimiter } from "../middlewares/rateLimiter.middleware.js";
 import {
   externalInitiateRechargeValidator,
   rechargeStatusValidator,
   rechargeListValidator,
-} from '../validators/recharge.validator.js';
-import { operatorController } from '../controllers/operator.controller.js';
-import { walletController } from '../controllers/wallet.controller.js';
-import { PERMISSIONS } from '../constants/permissions.js';
+} from "../validators/recharge.validator.js";
+import { operatorController } from "../controllers/operator.controller.js";
+import { walletController } from "../controllers/wallet.controller.js";
+import { PERMISSIONS } from "../constants/permissions.js";
+import RechargeTransaction from "../models/RechargeTransaction.model.js";
 
 const router = Router();
 
@@ -21,151 +22,144 @@ router.use(requireApiAccess);
 const getMobileNumber = (txn, req) => {
   return String(
     txn?.mobileNumber ||
-    req?.body?.mobileNumber ||
-    req?.query?.mobileNumber ||
-    req?.body?.number ||
-    req?.query?.number ||
-    req?.body?.mobile ||
-    req?.query?.mobile ||
-    req?.body?.phone ||
-    req?.query?.phone ||
-    ''
+      req?.body?.mobileNumber ||
+      req?.query?.mobileNumber ||
+      req?.body?.number ||
+      req?.query?.number ||
+      req?.body?.mobile ||
+      req?.query?.mobile ||
+      req?.body?.phone ||
+      req?.query?.phone ||
+      "",
   );
 };
 
 const getAmount = (txn, req) => {
-  if (txn?.amount !== undefined && txn?.amount !== null && txn?.amount !== '') {
+  if (txn?.amount !== undefined && txn?.amount !== null && txn?.amount !== "") {
     return txn.amount;
   }
-  const amt = req?.body?.amount ?? req?.query?.amount ?? req?.body?.amt ?? req?.query?.amt;
-  if (amt !== undefined && amt !== null && amt !== '') {
+  const amt =
+    req?.body?.amount ??
+    req?.query?.amount ??
+    req?.body?.amt ??
+    req?.query?.amt;
+  if (amt !== undefined && amt !== null && amt !== "") {
     return Number(amt) || amt;
   }
-  return '';
+  return "";
 };
 
-const isExactMroboticsRawResponse = (body) => {
-  if (!body || typeof body !== 'object') return false;
-  return (
-    'tnx_id' in body &&
-    'mobile_no' in body &&
-    'status' in body &&
-    'recharge_date' in body
-  );
-};
-
-const formatAsMroboticsResponse = (body, req) => {
+const formatAsDocumentedResponse = (body, req) => {
   const txn = body?.data?.transaction || body?.transaction || null;
-  const rawData = body?.raw || body?.rawResponse || txn?.providerResponse || {};
-
-  const nowIso = new Date().toISOString();
-  const createdAtIso = txn?.createdAt
-    ? new Date(txn.createdAt).toISOString()
-    : (rawData.createdAt || rawData.recharge_date || nowIso);
-  const updatedAtIso = txn?.updatedAt
-    ? new Date(txn.updatedAt).toISOString()
-    : (rawData.updatedAt || nowIso);
 
   const rawStatus = String(
-    body?.status ||
     txn?.status ||
-    rawData.status ||
-    (body?.success === true ? 'success' : (body?.success === false ? 'failure' : 'failure'))
-  ).toLowerCase();
+      body?.status ||
+      (body?.success === true
+        ? "SUCCESS"
+        : body?.success === false
+          ? "FAILURE"
+          : "FAILURE"),
+  ).toUpperCase();
 
-  let finalStatus = 'failure';
-  if (rawStatus === 'success' || rawStatus === 'true') {
-    finalStatus = 'success';
-  } else if (['pending', 'processing', 'initiated'].includes(rawStatus)) {
-    finalStatus = 'pending';
-  } else {
-    finalStatus = 'failure';
+  let status = "failure";
+  if (rawStatus === "SUCCESS" || rawStatus === "TRUE") {
+    status = "success";
+  } else if (["PENDING", "PROCESSING", "INITIATED"].includes(rawStatus)) {
+    status = "pending";
   }
 
-  const responseMsg =
-    rawData.response ||
-    rawData.errorMessage ||
-    rawData.message ||
-    txn?.providerMessage ||
-    txn?.statusMessage ||
-    body?.message ||
-    body?.response ||
-    (Array.isArray(body?.errors) && body.errors.length > 0 ? (body.errors[0]?.message || body.errors[0]?.msg) : '') ||
-    'No records found';
-
-  const mobileNo =
-    rawData.mobile_no ||
-    getMobileNumber(txn, req) ||
-    '';
-
-  const amountVal =
-    rawData.amount !== undefined
-      ? Number(rawData.amount)
-      : (txn?.amount !== undefined ? Number(txn.amount) : (getAmount(txn, req) !== '' ? Number(getAmount(txn, req)) : 0));
-
-  const clientIp = (req.ip || req.connection?.remoteAddress || '171.61.26.226').replace('::ffff:', '');
-
-  const orderId =
-    rawData.order_id ||
-    txn?.txnId ||
-    req.body?.order_id ||
-    req.query?.order_id ||
+  const txnId = txn?.txnId || body?.txnId || null;
+  const clientTxnId =
+    txn?.clientTxnId ||
+    body?.clientTxnId ||
     req.body?.clientTxnId ||
-    ('TXN' + Date.now());
+    req.query?.clientTxnId ||
+    null;
 
-  const tnxId =
-    rawData.tnx_id ||
-    rawData.id?.toString() ||
+  const providerTxnId =
     txn?.providerTxnId ||
+    body?.providerTxnId ||
     txn?.operatorRef ||
-    txn?.txnId ||
-    ('BR' + Math.random().toString(36).substring(2, 12).toUpperCase());
+    body?.operatorRef ||
+    (status === "pending" ? txnId : null);
 
-  const idVal =
-    typeof rawData.id === 'number'
-      ? rawData.id
-      : (Number(txn?.mroboticsRcId) || Math.floor(6130000000 + Math.random() * 9000000));
+  const operatorRef = txn?.operatorRef || body?.operatorRef || null;
+  const number =
+    getMobileNumber(txn, req) ||
+    body?.number ||
+    body?.mobileNumber ||
+    "";
+  const amount =
+    txn?.amount !== undefined
+      ? Number(txn.amount)
+      : body?.amount !== undefined
+        ? Number(body.amount)
+        : getAmount(null, req) !== ""
+          ? Number(getAmount(null, req))
+          : 0;
 
-  const lapuIdVal =
-    rawData.lapu_id !== undefined
-      ? rawData.lapu_id
-      : (txn?.operatorRef ? Number(txn.operatorRef) || txn.operatorRef : 2564502);
+  const operator =
+    (txn?.operator && typeof txn.operator === "object"
+      ? txn.operator.name
+      : txn?.operator) ||
+    (body?.operator && typeof body.operator === "object"
+      ? body.operator.name
+      : body?.operator) ||
+    null;
 
-  const userIdVal =
-    rawData.user_id !== undefined
-      ? rawData.user_id
-      : (req.user?.id ? (parseInt(String(req.user.id).slice(-6), 16) || 110429) : 110429);
+  const circle =
+    (txn?.circle && typeof txn.circle === "object"
+      ? txn.circle.name
+      : txn?.circle) ||
+    (body?.circle && typeof body.circle === "object"
+      ? body.circle.name
+      : body?.circle) ||
+    null;
 
-  const companyIdVal =
-    rawData.company_id !== undefined
-      ? rawData.company_id
-      : (req.body?.operatorId || req.body?.company_id || 5);
+  let message;
+  if (status === "success") {
+    message =
+      txn?.providerMessage ||
+      txn?.statusMessage ||
+      body?.message ||
+      "Recharge successful";
+  } else if (status === "pending") {
+    message =
+      txn?.providerMessage ||
+      txn?.statusMessage ||
+      body?.message ||
+      "Recharge is currently processing";
+  } else {
+    const errMsg =
+      txn?.providerMessage ||
+      txn?.statusMessage ||
+      body?.message ||
+      (Array.isArray(body?.errors) && body.errors.length > 0
+        ? body.errors[0]?.message || body.errors[0]?.msg
+        : "") ||
+      "Recharge failed";
+    message = errMsg;
+  }
 
-  const balanceVal =
-    typeof rawData.balance === 'number'
-      ? rawData.balance
-      : (typeof req.user?.wallet?.balance === 'number' ? req.user.wallet.balance : 18267.53);
+  const createdAt = txn?.createdAt
+    ? new Date(txn.createdAt).toISOString()
+    : body?.createdAt
+      ? new Date(body.createdAt).toISOString()
+      : new Date().toISOString();
 
   return {
-    lapu_no: rawData.lapu_no ?? '',
-    balance: balanceVal,
-    roffer: rawData.roffer ?? 0,
-    status: finalStatus,
-    recharge_date: createdAtIso,
-    id: idVal,
-    lapu_id: lapuIdVal,
-    user_id: userIdVal,
-    company_id: typeof companyIdVal === 'number' ? companyIdVal : (Number(companyIdVal) || 5),
-    mobile_no: mobileNo,
-    amount: amountVal,
-    order_id: orderId,
-    txnId: txn?.txnId || orderId,
-    clientTxnId: txn?.clientTxnId || req.body?.clientTxnId || req.query?.clientTxnId || null,
-    ip_address: rawData.ip_address || clientIp,
-    updatedAt: updatedAtIso,
-    createdAt: createdAtIso,
-    response: typeof responseMsg === 'string' ? responseMsg : JSON.stringify(responseMsg),
-    tnx_id: tnxId,
+    status,
+    txnId,
+    clientTxnId,
+    providerTxnId,
+    operatorRef,
+    number,
+    amount,
+    operator,
+    circle,
+    message,
+    createdAt,
   };
 };
 
@@ -173,77 +167,128 @@ const simplifyRechargeResponse = (req, res, next) => {
   const originalJson = res.json.bind(res);
 
   res.json = (body) => {
-    // If the body is already the exact mrobotics response shape, pass it through directly
-    if (isExactMroboticsRawResponse(body)) {
-      return originalJson(body);
-    }
-
-    // Otherwise, convert whatever response came (from realrobo, validation error, etc.) to the exact mrobotics format
-    return originalJson(formatAsMroboticsResponse(body, req));
+    return originalJson(formatAsDocumentedResponse(body, req));
   };
 
   next();
 };
 
+const parseRawJsonString = (str) => {
+  if (!str || typeof str !== "string") return null;
+  const trimmed = str.trim();
+  if (!trimmed.includes("{") || !trimmed.includes("}")) return null;
+
+  const startIdx = trimmed.indexOf("{");
+  const endIdx = trimmed.lastIndexOf("}");
+  if (startIdx === -1 || endIdx <= startIdx) return null;
+
+  const jsonSubstring = trimmed.slice(startIdx, endIdx + 1);
+
+  try {
+    const parsed = JSON.parse(jsonSubstring);
+    if (parsed && typeof parsed === "object") return parsed;
+  } catch (_) {}
+
+  try {
+    const fixed = jsonSubstring
+      .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)"(\s*:)/g, '$1"$2"$3')
+      .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)(\s*:)/g, '$1"$2"$3');
+    const parsed = JSON.parse(fixed);
+    if (parsed && typeof parsed === "object") return parsed;
+  } catch (_) {}
+
+  const res = {};
+  const mobileMatch = jsonSubstring.match(
+    /"(?:mobileNumber|mobile|number|phone)"\s*:\s*"([^"]+)"/i,
+  );
+  if (mobileMatch) res.mobileNumber = mobileMatch[1];
+
+  const amountMatch = jsonSubstring.match(
+    /[,{]\s*(?:")?amount(?:")?\s*:\s*([0-9.]+)/i,
+  );
+  if (amountMatch) res.amount = amountMatch[1];
+
+  const opMatch = jsonSubstring.match(
+    /"(?:operatorId|operator|op)"\s*:\s*"([^"]+)"/i,
+  );
+  if (opMatch) res.operatorId = opMatch[1];
+
+  const circleMatch = jsonSubstring.match(
+    /"(?:circleId|circle|state)"\s*:\s*"([^"]+)"/i,
+  );
+  if (circleMatch) res.circleId = circleMatch[1];
+
+  const typeMatch = jsonSubstring.match(/"type"\s*:\s*"([^"]+)"/i);
+  if (typeMatch) res.type = typeMatch[1];
+
+  const clientTxnMatch = jsonSubstring.match(
+    /"(?:clientTxnId|customTxnId|retailerTxnId|externalTxnId|order_id|orderId|refId)"\s*:\s*"([^"]+)"/i,
+  );
+  if (clientTxnMatch) res.clientTxnId = clientTxnMatch[1];
+
+  return Object.keys(res).length ? res : null;
+};
+
 const normalizeRechargePayload = (req, res, next) => {
   req.body = { ...(req.query || {}), ...(req.body || {}) };
 
-  // Client sends all params as a JSON blob in the query string
-  // e.g. ?{"X-Api-Key":"...","mobileNumber":"639560766",amount":10,...}=
-  // Express parses the entire blob as a single key — extract fields from it.
-  if (!req.body.mobileNumber && !req.body.mobile && !req.body.number && !req.body.phone) {
-    for (const rawKey of Object.keys(req.query)) {
-      let parsed = null;
+  const allKeys = [
+    ...Object.keys(req.query || {}),
+    ...Object.keys(req.body || {}),
+  ];
+  const mergedFromRaw = {};
 
-      // Attempt 1: direct JSON.parse (rawKey is already URL-decoded by Express)
-      try { parsed = JSON.parse(rawKey); } catch (_) { /* not valid JSON */ }
-
-      // Attempt 2: fix malformed JSON then parse
-      // Handles: ,amount":10 → ,"amount":10  and  ,key:val → ,"key":val
-      if (!parsed) {
-        try {
-          const fixed = rawKey
-            .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)"(\s*:)/g, '$1"$2"$3')
-            .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)(\s*:)/g, '$1"$2"$3');
-          parsed = JSON.parse(fixed);
-        } catch (_) { /* still not parseable */ }
+  for (const k of allKeys) {
+    if (k.includes("{")) {
+      const parsed = parseRawJsonString(k);
+      if (parsed) {
+        Object.assign(mergedFromRaw, parsed);
       }
-
-      // Attempt 3: regex extraction directly on rawKey (already URL-decoded)
-      if (!parsed) {
-        const fromRaw = {};
-        const mobileMatch = rawKey.match(/"(?:mobileNumber|mobile|number|phone)"\s*:\s*"([^"]+)"/i);
-        if (mobileMatch) fromRaw.mobileNumber = mobileMatch[1];
-        const amountMatch = rawKey.match(/[,{]\s*(?:")?amount(?:")?\s*:\s*([0-9.]+)/i);
-        if (amountMatch) fromRaw.amount = amountMatch[1];
-        const opMatch = rawKey.match(/"operatorId"\s*:\s*"([^"]+)"/i);
-        if (opMatch) fromRaw.operatorId = opMatch[1];
-        const circleMatch = rawKey.match(/"circleId"\s*:\s*"([^"]+)"/i);
-        if (circleMatch) fromRaw.circleId = circleMatch[1];
-        const typeMatch = rawKey.match(/"type"\s*:\s*"([^"]+)"/i);
-        if (typeMatch) fromRaw.type = typeMatch[1];
-        const clientTxnMatch = rawKey.match(/"(?:clientTxnId|customTxnId|retailerTxnId|externalTxnId|order_id|orderId|refId)"\s*:\s*"([^"]+)"/i);
-        if (clientTxnMatch) fromRaw.clientTxnId = clientTxnMatch[1];
-        if (Object.keys(fromRaw).length) { parsed = fromRaw; }
-      }
-
-      if (parsed && typeof parsed === 'object') {
-        Object.entries(parsed).forEach(([k, v]) => {
-          const lk = k.toLowerCase();
-          if (!['x-api-key', 'apikey', 'api_key', 'key', 'token', 'content-type', 'authorization'].includes(lk)) {
-            if (req.body[k] === undefined || req.body[k] === '') req.body[k] = v;
-          }
-        });
-        break;
-      }
+      delete req.body[k];
     }
   }
 
-  const mobile = req.body.mobileNumber || req.body.mobile || req.body.number || req.body.phone;
+  const fullUrl = `${req.originalUrl || ""} ${req.url || ""}`;
+  if (fullUrl.includes("{")) {
+    const parsedFromUrl = parseRawJsonString(fullUrl);
+    if (parsedFromUrl) {
+      Object.assign(mergedFromRaw, parsedFromUrl);
+    }
+  }
+
+  Object.entries(mergedFromRaw).forEach(([key, val]) => {
+    const lk = key.toLowerCase();
+    if (
+      ![
+        "x-api-key",
+        "apikey",
+        "api_key",
+        "key",
+        "token",
+        "content-type",
+        "authorization",
+      ].includes(lk)
+    ) {
+      if (
+        req.body[key] === undefined ||
+        req.body[key] === "" ||
+        key === "clientTxnId"
+      ) {
+        req.body[key] = val;
+      }
+    }
+  });
+
+  const mobile =
+    req.body.mobileNumber ||
+    req.body.mobile ||
+    req.body.number ||
+    req.body.phone;
   if (mobile) req.body.mobileNumber = String(mobile).trim();
 
   const amount = req.body.amount ?? req.body.amt;
-  if (amount !== undefined && amount !== null && amount !== '') req.body.amount = Number(amount);
+  if (amount !== undefined && amount !== null && amount !== "")
+    req.body.amount = Number(amount);
 
   const op = req.body.operatorId || req.body.operator || req.body.op;
   if (op) req.body.operatorId = String(op).trim();
@@ -251,7 +296,7 @@ const normalizeRechargePayload = (req, res, next) => {
   const circle = req.body.circleId || req.body.circle || req.body.state;
   if (circle) req.body.circleId = String(circle).trim();
 
-  const clientTxn =
+  let clientTxn =
     req.body.clientTxnId ||
     req.body.customTxnId ||
     req.body.retailerTxnId ||
@@ -259,17 +304,29 @@ const normalizeRechargePayload = (req, res, next) => {
     req.body.order_id ||
     req.body.orderId ||
     req.body.refId ||
-    req.query.clientTxnId ||
-    req.query.customTxnId ||
-    req.query.retailerTxnId ||
-    req.query.externalTxnId ||
-    req.query.order_id ||
-    req.query.orderId ||
-    req.query.refId;
-  if (clientTxn) req.body.clientTxnId = String(clientTxn).trim();
+    req.query?.clientTxnId ||
+    req.query?.customTxnId ||
+    req.query?.retailerTxnId ||
+    req.query?.externalTxnId ||
+    req.query?.order_id ||
+    req.query?.orderId ||
+    req.query?.refId;
+
+  if (!clientTxn) {
+    const m = fullUrl.match(
+      /(?:clientTxnId|customTxnId|retailerTxnId|externalTxnId|order_id|orderId|refId)["']?\s*[:=]\s*["']?([a-zA-Z0-9_\-]+)["']?/i,
+    );
+    if (m && m[1]) {
+      clientTxn = m[1].trim();
+    }
+  }
+
+  if (clientTxn) {
+    req.body.clientTxnId = String(clientTxn).trim();
+  }
 
   if (!req.body.type) {
-    req.body.type = 'MOBILE_PREPAID';
+    req.body.type = "MOBILE_PREPAID";
   }
 
   next();
@@ -281,15 +338,24 @@ const simplifyStatusResponse = (req, res, next) => {
   res.json = (body) => {
     const txn = body?.data?.transaction || body?.transaction;
     if (!txn) {
-      if (body && typeof body === 'object') {
+      if (body && typeof body === "object") {
         const mobileNumber = getMobileNumber(null, req);
         const amount = getAmount(null, req) || 0;
-        const message = body.message || (Array.isArray(body.errors) && body.errors.length > 0 ? (body.errors[0]?.message || body.errors[0]?.msg) : '') || 'Transaction not found';
-        const providerTxnId = body.providerTxnId || message || 'FAILED';
+        const message =
+          body.message ||
+          (Array.isArray(body.errors) && body.errors.length > 0
+            ? body.errors[0]?.message || body.errors[0]?.msg
+            : "") ||
+          "Transaction not found";
+        const providerTxnId = body.providerTxnId || message || "FAILED";
         return originalJson({
-          status: 'failure',
+          status: "failure",
           txnId: null,
-          clientTxnId: req.params?.txnId || req.body?.clientTxnId || req.query?.clientTxnId || null,
+          clientTxnId:
+            req.params?.txnId ||
+            req.body?.clientTxnId ||
+            req.query?.clientTxnId ||
+            null,
           providerTxnId,
           operatorRef: null,
           number: mobileNumber,
@@ -300,18 +366,32 @@ const simplifyStatusResponse = (req, res, next) => {
       return originalJson(body);
     }
 
-    const rawStatus = String(txn.status || '').toUpperCase();
-    let status = 'failure';
-    if (rawStatus === 'SUCCESS') {
-      status = 'success';
-    } else if (['PENDING', 'PROCESSING', 'INITIATED'].includes(rawStatus)) {
-      status = 'pending';
+    const rawStatus = String(txn.status || "").toUpperCase();
+    let status = "failure";
+    if (rawStatus === "SUCCESS") {
+      status = "success";
+    } else if (["PENDING", "PROCESSING", "INITIATED"].includes(rawStatus)) {
+      status = "pending";
     } else {
-      status = 'failure';
+      status = "failure";
     }
 
-    const message = txn.providerMessage || txn.statusMessage || body.message || (status === 'success' ? 'Recharge successful' : (status === 'pending' ? 'Recharge is currently processing' : 'Recharge failed'));
-    const providerTxnId = txn.providerTxnId || txn.operatorRef || txn.mroboticsRcId || (txn.txnId ? String(txn.txnId) : '') || message || 'FAILED';
+    const message =
+      txn.providerMessage ||
+      txn.statusMessage ||
+      body.message ||
+      (status === "success"
+        ? "Recharge successful"
+        : status === "pending"
+          ? "Recharge is currently processing"
+          : "Recharge failed");
+    const providerTxnId =
+      txn.providerTxnId ||
+      txn.operatorRef ||
+      txn.mroboticsRcId ||
+      (txn.txnId ? String(txn.txnId) : "") ||
+      message ||
+      "FAILED";
     const mobileNumber = getMobileNumber(txn, req);
     const amount = getAmount(txn, req);
 
@@ -322,8 +402,9 @@ const simplifyStatusResponse = (req, res, next) => {
       providerTxnId,
       operatorRef: txn.operatorRef || null,
       number: mobileNumber,
-      amount: amount !== '' ? Number(amount) : 0,
-      operator: txn.operator?.name || txn.operator?.code || txn.operator || null,
+      amount: amount !== "" ? Number(amount) : 0,
+      operator:
+        txn.operator?.name || txn.operator?.code || txn.operator || null,
       circle: txn.circle?.name || txn.circle?.code || txn.circle || null,
       message,
       createdAt: txn.createdAt || null,
@@ -331,6 +412,56 @@ const simplifyStatusResponse = (req, res, next) => {
   };
 
   next();
+};
+
+const checkDuplicateClientTxnId = async (req, res, next) => {
+  const clientTxnId = req.body?.clientTxnId;
+  if (!clientTxnId) return next();
+
+  const userId = req.user?._id || req.user?.id;
+  if (!userId) return next();
+
+  try {
+    const existing = await RechargeTransaction.findOne(
+      { user: userId, clientTxnId },
+      {
+        txnId: 1,
+        status: 1,
+        amount: 1,
+        mobileNumber: 1,
+        createdAt: 1,
+        operator: 1,
+        circle: 1,
+        providerTxnId: 1,
+        operatorRef: 1,
+      },
+    )
+      .populate("operator", "name code")
+      .populate("circle", "name code")
+      .lean();
+
+    if (existing) {
+      return res.status(409).json({
+        status: "failure",
+        txnId: existing.txnId || null,
+        clientTxnId,
+        providerTxnId: existing.providerTxnId || null,
+        operatorRef: existing.operatorRef || null,
+        number: existing.mobileNumber || getMobileNumber(null, req),
+        amount: Number(existing.amount) || 0,
+        operator: existing.operator?.name || null,
+        circle: existing.circle?.name || null,
+        message: `Duplicate clientTxnId: "${clientTxnId}" has already been used for a recharge by this account.`,
+        createdAt: existing.createdAt
+          ? new Date(existing.createdAt).toISOString()
+          : new Date().toISOString(),
+      });
+    }
+
+    return next();
+  } catch (err) {
+    return next();
+  }
 };
 
 const handleGetRecharge = (req, res, next) => {
@@ -346,8 +477,10 @@ const handleGetRecharge = (req, res, next) => {
   if (hasRechargeFields) {
     return rechargeRateLimiter(req, res, () => {
       authorizePermissions(PERMISSIONS.RECHARGE_INITIATE)(req, res, () => {
-        externalInitiateRechargeValidator(req, res, () => {
-          rechargeController.initiateRecharge(req, res, next);
+        checkDuplicateClientTxnId(req, res, () => {
+          externalInitiateRechargeValidator(req, res, () => {
+            rechargeController.initiateRecharge(req, res, next);
+          });
         });
       });
     });
@@ -361,24 +494,25 @@ const handleGetRecharge = (req, res, next) => {
 };
 
 router.post(
-  '/recharge',
+  "/recharge",
   simplifyRechargeResponse,
   normalizeRechargePayload,
   rechargeRateLimiter,
   authorizePermissions(PERMISSIONS.RECHARGE_INITIATE),
+  checkDuplicateClientTxnId,
   externalInitiateRechargeValidator,
   rechargeController.initiateRecharge,
 );
 
 router.get(
-  '/recharge',
+  "/recharge",
   simplifyRechargeResponse,
   normalizeRechargePayload,
   handleGetRecharge,
 );
 
 router.get(
-  '/recharge/:txnId',
+  "/recharge/:txnId",
   simplifyStatusResponse,
   authorizePermissions(PERMISSIONS.RECHARGE_STATUS),
   rechargeStatusValidator,
@@ -386,42 +520,47 @@ router.get(
 );
 
 router.get(
-  '/wallet',
+  "/wallet",
   authorizePermissions(PERMISSIONS.WALLET_READ),
   walletController.getMyWallet,
 );
 
 router.get(
-  '/operators',
+  "/operators",
   authorizePermissions(PERMISSIONS.OPERATOR_LIST),
   operatorController.listActiveOperators,
 );
 
 router.get(
-  '/circles',
+  "/circles",
   authorizePermissions(PERMISSIONS.CIRCLE_LIST),
   operatorController.listCircles,
 );
 
 router.get(
-  '/plans',
+  "/plans",
   authorizePermissions(PERMISSIONS.PLAN_LIST),
   operatorController.getPlanRecommendations,
 );
 
-router.use('/recharge', (err, req, res, next) => {
+router.use("/recharge", (err, req, res, next) => {
   const statusCode = err.statusCode || 500;
-  const message = err.message || 'Internal server error';
+  const message = err.message || "Internal server error";
   const mobileNumber = getMobileNumber(null, req);
   const amount = getAmount(null, req) || 0;
-  const providerTxnId = message || 'FAILED';
 
   return res.status(statusCode).json({
-    status: 'failure',
-    providerTxnId,
+    status: "failure",
+    txnId: null,
+    clientTxnId: req.body?.clientTxnId || req.query?.clientTxnId || null,
+    providerTxnId: null,
+    operatorRef: null,
     number: mobileNumber,
-    amount,
+    amount: Number(amount) || 0,
+    operator: null,
+    circle: null,
     message,
+    createdAt: new Date().toISOString(),
   });
 });
 

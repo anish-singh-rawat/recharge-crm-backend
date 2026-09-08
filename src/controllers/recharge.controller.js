@@ -17,18 +17,51 @@ export const rechargeController = {
     try {
       txn = await rechargeService.initiateRecharge(req.body, req.user, requestMeta);
     } catch (err) {
-      const raw = err.providerRawResponse || err.transaction?.providerResponse;
-      if (isExternalApiRequest && raw) {
-        return res.status(HTTP_STATUS.OK).json(raw);
+      if (isExternalApiRequest) {
+        const failedTxn = err.transaction || {};
+        return res.status(HTTP_STATUS.OK).json({
+          data: {
+            transaction: {
+              txnId:          failedTxn.txnId          || null,
+              clientTxnId:    failedTxn.clientTxnId    || req.body?.clientTxnId || null,
+              providerTxnId:  failedTxn.providerTxnId  || null,
+              operatorRef:    failedTxn.operatorRef     || null,
+              mobileNumber:   failedTxn.mobileNumber    || req.body?.mobileNumber || '',
+              amount:         failedTxn.amount          || req.body?.amount || 0,
+              status:         'FAILED',
+              operator:       failedTxn.operator        || null,
+              circle:         failedTxn.circle          || null,
+              providerMessage: err.message              || 'Recharge failed',
+              statusMessage:  err.message               || 'Recharge failed',
+              createdAt:      failedTxn.createdAt       || new Date(),
+            },
+          },
+        });
       }
       throw err;
     }
 
     const isSuccess = txn.status === 'SUCCESS';
-    const raw = txn.providerRawResponse || txn.providerResponse;
 
-    if (isExternalApiRequest && raw) {
-      return res.status(isSuccess ? HTTP_STATUS.CREATED : HTTP_STATUS.OK).json(raw);
+    if (isExternalApiRequest) {
+      return res.status(isSuccess ? HTTP_STATUS.CREATED : HTTP_STATUS.OK).json({
+        data: {
+          transaction: {
+            txnId:          txn.txnId,
+            clientTxnId:    txn.clientTxnId    || req.body?.clientTxnId || null,
+            providerTxnId:  txn.providerTxnId  || null,
+            operatorRef:    txn.operatorRef     || null,
+            mobileNumber:   txn.mobileNumber,
+            amount:         txn.amount,
+            status:         txn.status,
+            operator:       txn.operator,
+            circle:         txn.circle,
+            providerMessage: txn.providerMessage || txn.statusMessage || (isSuccess ? 'Recharge successful' : 'Recharge failed'),
+            statusMessage:  txn.statusMessage   || '',
+            createdAt:      txn.createdAt,
+          },
+        },
+      });
     }
 
     const isAdmin = ['admin', 'super_admin'].includes(req.user?.role);

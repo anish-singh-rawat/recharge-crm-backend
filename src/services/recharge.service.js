@@ -134,6 +134,8 @@ async function callProviderWithFallback({ mobileNumber, amount, operator, circle
         lastError = new Error(failMsg);
         lastError.isRetryable = isTransient;
         lastError.rawResponse = result.rawResponse;
+        lastError.providerResult = result;
+        lastError.usedProvider = providerName;
 
         if (isTransient) {
           return { result, usedProvider: providerName };
@@ -155,6 +157,10 @@ async function callProviderWithFallback({ mobileNumber, amount, operator, circle
       });
 
       lastError = err;
+      lastError.usedProvider = providerName;
+      if (err.rawResponse) {
+        lastError.rawResponse = err.rawResponse;
+      }
     }
   }
 
@@ -162,6 +168,12 @@ async function callProviderWithFallback({ mobileNumber, amount, operator, circle
   finalErr.isRetryable = false;
   if (!finalErr.rawResponse && lastError?.rawResponse) {
     finalErr.rawResponse = lastError.rawResponse;
+  }
+  if (!finalErr.providerResult && lastError?.providerResult) {
+    finalErr.providerResult = lastError.providerResult;
+  }
+  if (!finalErr.usedProvider && lastError?.usedProvider) {
+    finalErr.usedProvider = lastError.usedProvider;
   }
   throw finalErr;
 }
@@ -285,13 +297,19 @@ export const rechargeService = {
 
       rechargeLogger.error('All providers failed', { txnId, error: errMsg });
 
-      const isRetryable = providerErr.isRetryable === true;
-      const nextRetryAt = isRetryable ? calcNextRetryAt(0) : null;
+      const providerResult = providerErr.providerResult || {};
+      const providerTxnId = providerResult.providerTxnId || null;
+      const operatorRef = providerResult.operatorRef || null;
+      const usedProvider = providerErr.usedProvider || null;
 
       const failedTxn = await rechargeTransactionRepository.updateStatus(txnId, TRANSACTION_STATUS.FAILED, {
         statusMessage: errMsg,
         isRetryable,
         nextRetryAt,
+        providerTxnId,
+        operatorRef,
+        providerResponse: providerErr.rawResponse || null,
+        usedProvider,
       });
 
       await walletService.refundFromRecharge(wallet._id, amount, txnId, user._id);
@@ -385,8 +403,12 @@ export const rechargeService = {
           await rechargeTransactionRepository.updateStatus(txn.txnId, statusResult.status, {
             providerStatus: statusResult.providerStatus,
             providerMessage: statusResult.message,
+            ...(statusResult.providerTxnId && { providerTxnId: statusResult.providerTxnId }),
+            ...(statusResult.operatorRef && { operatorRef: statusResult.operatorRef }),
           });
           txn.status = statusResult.status;
+          if (statusResult.providerTxnId) txn.providerTxnId = statusResult.providerTxnId;
+          if (statusResult.operatorRef) txn.operatorRef = statusResult.operatorRef;
         }
       } catch (err) {
         rechargeLogger.warn('Status check from provider failed', { txnId: txn.txnId, error: err.message });

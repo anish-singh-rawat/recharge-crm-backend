@@ -35,17 +35,29 @@ export const realroboMapperService = {
     const providerStatus = String(raw.status ?? '').toLowerCase();
     const internalStatus = STATUS_MAP[raw.status] ?? TRANSACTION_STATUS.FAILED;
 
+    const providerTxnId =
+      (raw.recharge_id ? String(raw.recharge_id) : null) ||
+      (raw.txid ? String(raw.txid) : null) ||
+      null;
+
+    const operatorRef =
+      (raw.txid && raw.recharge_id && String(raw.txid) !== String(raw.recharge_id)
+        ? String(raw.txid)
+        : null) ||
+      raw.opref?.toString() ||
+      raw.operator_ref?.toString() ||
+      null;
+
     return {
       status: internalStatus,
       providerStatus,
-      providerTxnId: raw.txid?.toString() || null,
-      mroboticsRcId: null,                               // BUG 4 fix: not applicable for RealRobo
-      operatorRef: raw.req_id?.toString() || null,
+      providerTxnId,
+      mroboticsRcId: null,
+      operatorRef,
       message: buildMessage(raw),
       balance: raw.lapu_balance ?? null,
       rawResponse: raw,
     };
-
   },
 
   mapStatusResponse(raw) {
@@ -59,10 +71,24 @@ export const realroboMapperService = {
 
     const internalStatus = STATUS_MAP[raw.status] ?? TRANSACTION_STATUS.PENDING;
 
+    const providerTxnId =
+      (raw.recharge_id ? String(raw.recharge_id) : null) ||
+      (raw.txid ? String(raw.txid) : null) ||
+      null;
+
+    const operatorRef =
+      (raw.txid && raw.recharge_id && String(raw.txid) !== String(raw.recharge_id)
+        ? String(raw.txid)
+        : null) ||
+      raw.opref?.toString() ||
+      raw.operator_ref?.toString() ||
+      null;
+
     return {
       status: internalStatus,
       providerStatus: String(raw.status ?? '').toLowerCase(),
-      providerTxnId: raw.txid?.toString() || null,
+      providerTxnId,
+      operatorRef,
       message: buildMessage(raw),
     };
   },

@@ -90,7 +90,10 @@ class RechargeTransactionRepository extends BaseRepository {
         },
       },
       { new: true },
-    ).lean();
+    )
+      .populate('operator', 'name code type')
+      .populate('circle', 'name code')
+      .lean();
   }
 
   async markRetry(txnId, nextRetryAt) {
