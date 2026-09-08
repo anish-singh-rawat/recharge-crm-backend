@@ -44,9 +44,17 @@ export const partnerOrderController = {
   updateOrderPayment: asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { paidAmount } = req.body;
-    const order = await partnerOrderService.updateOrderPayment(id, paidAmount);
+    const { order, whatsapp } = await partnerOrderService.updateOrderPayment(id, paidAmount);
+
+    let message = 'Order payment updated successfully';
+    if (whatsapp?.queued) {
+      message = `Order payment updated & WhatsApp receipt sent to ${whatsapp.mobile}!`;
+    } else if (whatsapp?.reason) {
+      message = `Order payment updated (${whatsapp.reason})`;
+    }
+
     sendSuccess(res, {
-      message: 'Order payment updated successfully',
+      message,
       data: order,
     });
   }),
@@ -54,8 +62,16 @@ export const partnerOrderController = {
   bulkMarkAsPaid: asyncHandler(async (req, res) => {
     const { orderIds } = req.body;
     const result = await partnerOrderService.bulkMarkAsPaid(orderIds);
+
+    let message = `${result.updated} order(s) marked as fully paid.`;
+    if (result.whatsappCount > 0) {
+      message = `${result.updated} order(s) marked as paid & ${result.whatsappCount} WhatsApp receipt(s) sent!`;
+    } else if (result.whatsappReason) {
+      message = `${result.updated} order(s) marked as paid (${result.whatsappReason})`;
+    }
+
     sendSuccess(res, {
-      message: `${result.updated} order(s) marked as fully paid.`,
+      message,
       data: result,
     });
   }),

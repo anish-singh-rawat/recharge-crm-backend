@@ -494,7 +494,10 @@ class WhatsAppService {
       throw new Error('Message text is required.');
     }
 
-    const cleanNumber = String(number).trim().replace(/[^0-9]/g, '');
+    let cleanNumber = String(number).trim().replace(/[^0-9]/g, '');
+    if (cleanNumber.length === 10) {
+      cleanNumber = '91' + cleanNumber;
+    }
     let jid = toJid(cleanNumber);
     if (!jid) {
       throw new Error('Invalid mobile number format.');

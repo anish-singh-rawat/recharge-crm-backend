@@ -31,27 +31,33 @@ export const rechargeController = {
       return res.status(isSuccess ? HTTP_STATUS.CREATED : HTTP_STATUS.OK).json(raw);
     }
 
+    const isAdmin = ['admin', 'super_admin'].includes(req.user?.role);
+    const transactionData = {
+      txnId:           txn.txnId,
+      status:          txn.status,
+      mobileNumber:    txn.mobileNumber,
+      amount:          txn.amount,
+      operator:        txn.operator,
+      circle:          txn.circle,
+      providerTxnId:   txn.providerTxnId,
+      providerStatus:  txn.providerStatus,
+      providerMessage: txn.providerMessage,
+      operatorRef:     txn.operatorRef,
+      commission:      txn.commission,
+      refundAmount:    txn.refundAmount,
+      createdAt:       txn.createdAt,
+    };
+
+    if (isAdmin) {
+      transactionData.usedProvider = txn.usedProvider;
+    }
+
     sendSuccess(res, {
       message: isSuccess
         ? 'Recharge successful'
         : `Recharge ${txn.status.toLowerCase()}: ${txn.providerMessage || txn.statusMessage}`,
       data: {
-        transaction: {
-          txnId:           txn.txnId,
-          status:          txn.status,
-          mobileNumber:    txn.mobileNumber,
-          amount:          txn.amount,
-          operator:        txn.operator,
-          circle:          txn.circle,
-          providerTxnId:   txn.providerTxnId,
-          providerStatus:  txn.providerStatus,
-          providerMessage: txn.providerMessage,
-          operatorRef:     txn.operatorRef,
-          commission:      txn.commission,
-          refundAmount:    txn.refundAmount,
-          usedProvider:    txn.usedProvider,
-          createdAt:       txn.createdAt,
-        },
+        transaction: transactionData,
       },
       statusCode: isSuccess ? HTTP_STATUS.CREATED : HTTP_STATUS.OK,
     });
@@ -59,7 +65,11 @@ export const rechargeController = {
 
   getStatus: asyncHandler(async (req, res) => {
     const txn = await rechargeService.getStatus(req.params.txnId, req.user.id);
-    sendSuccess(res, { message: 'Transaction status retrieved', data: { transaction: txn } });
+    const txnObj = txn?.toObject ? txn.toObject() : (txn ? { ...txn } : txn);
+    if (!['admin', 'super_admin'].includes(req.user?.role) && txnObj) {
+      delete txnObj.usedProvider;
+    }
+    sendSuccess(res, { message: 'Transaction status retrieved', data: { transaction: txnObj } });
   }),
 
   getStatusAdmin: asyncHandler(async (req, res) => {
@@ -69,9 +79,18 @@ export const rechargeController = {
 
   getMyTransactions: asyncHandler(async (req, res) => {
     const { items, total } = await rechargeService.listByUser(req.user.id, req.query);
+    const isAdmin = ['admin', 'super_admin'].includes(req.user?.role);
+    const sanitizedItems = isAdmin
+      ? items
+      : items.map((item) => {
+          const doc = item?.toObject ? item.toObject() : { ...item };
+          delete doc.usedProvider;
+          return doc;
+        });
+
     sendSuccess(res, {
       message: 'Transactions retrieved',
-      data: paginatedResponse(items, {
+      data: paginatedResponse(sanitizedItems, {
         page: parseInt(req.query.page, 10) || 1,
         limit: parseInt(req.query.limit, 10) || 20,
         total,
