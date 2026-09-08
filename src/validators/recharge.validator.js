@@ -22,6 +22,12 @@ export const initiateRechargeValidator = [
     .optional({ checkFalsy: true })
     .isMongoId()
     .withMessage('Invalid circle ID'),
+  body('clientTxnId')
+    .optional({ checkFalsy: true })
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 100 })
+    .withMessage('clientTxnId must be between 1 and 100 characters'),
   body('type')
     .optional({ checkFalsy: true })
     .customSanitizer(val => val || RECHARGE_TYPE.MOBILE_PREPAID)
@@ -46,6 +52,12 @@ export const externalInitiateRechargeValidator = [
     .withMessage('Operator is required'),
   body('circleId')
     .optional({ checkFalsy: true }),
+  body('clientTxnId')
+    .optional({ checkFalsy: true })
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 100 })
+    .withMessage('clientTxnId must be between 1 and 100 characters'),
   body('type')
     .optional({ checkFalsy: true })
     .customSanitizer(val => val || RECHARGE_TYPE.MOBILE_PREPAID)

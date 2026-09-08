@@ -8,25 +8,40 @@ class RechargeTransactionRepository extends BaseRepository {
     super(RechargeTransaction);
   }
 
-  async findByTxnId(txnId) {
+  async findByTxnId(txnId, userId = null) {
     if (!txnId) return null;
-    const query = mongoose.Types.ObjectId.isValid(String(txnId)) && String(txnId).length === 24
-      ? { $or: [{ txnId: String(txnId) }, { _id: txnId }] }
-      : { txnId: String(txnId) };
+    const isObjId = mongoose.Types.ObjectId.isValid(String(txnId)) && String(txnId).length === 24;
+    const orConditions = [{ txnId: String(txnId) }, { clientTxnId: String(txnId) }];
+    if (isObjId) orConditions.push({ _id: txnId });
+
+    const query = userId
+      ? { user: userId, $or: orConditions }
+      : { $or: orConditions };
+
     return RechargeTransaction.findOne(query).lean();
   }
 
-  async findByTxnIdFull(txnId) {
+  async findByTxnIdFull(txnId, userId = null) {
     if (!txnId) return null;
-    const query = mongoose.Types.ObjectId.isValid(String(txnId)) && String(txnId).length === 24
-      ? { $or: [{ txnId: String(txnId) }, { _id: txnId }] }
-      : { txnId: String(txnId) };
+    const isObjId = mongoose.Types.ObjectId.isValid(String(txnId)) && String(txnId).length === 24;
+    const orConditions = [{ txnId: String(txnId) }, { clientTxnId: String(txnId) }];
+    if (isObjId) orConditions.push({ _id: txnId });
+
+    const query = userId
+      ? { user: userId, $or: orConditions }
+      : { $or: orConditions };
+
     return RechargeTransaction.findOne(query)
       .select('+providerRequest +providerResponse')
       .populate('operator', 'name code type')
       .populate('circle', 'name code')
       .populate('provider', 'name code')
       .lean();
+  }
+
+  async findByClientTxnId(userId, clientTxnId) {
+    if (!userId || !clientTxnId) return null;
+    return RechargeTransaction.findOne({ user: userId, clientTxnId: String(clientTxnId).trim() }).lean();
   }
 
   async findByProviderTxnId(providerTxnId) {

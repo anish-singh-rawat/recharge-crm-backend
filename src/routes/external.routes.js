@@ -159,6 +159,8 @@ const formatAsMroboticsResponse = (body, req) => {
     mobile_no: mobileNo,
     amount: amountVal,
     order_id: orderId,
+    txnId: txn?.txnId || orderId,
+    clientTxnId: txn?.clientTxnId || req.body?.clientTxnId || req.query?.clientTxnId || null,
     ip_address: rawData.ip_address || clientIp,
     updatedAt: updatedAtIso,
     createdAt: createdAtIso,
@@ -220,6 +222,8 @@ const normalizeRechargePayload = (req, res, next) => {
         if (circleMatch) fromRaw.circleId = circleMatch[1];
         const typeMatch = rawKey.match(/"type"\s*:\s*"([^"]+)"/i);
         if (typeMatch) fromRaw.type = typeMatch[1];
+        const clientTxnMatch = rawKey.match(/"(?:clientTxnId|customTxnId|retailerTxnId|externalTxnId|order_id|orderId|refId)"\s*:\s*"([^"]+)"/i);
+        if (clientTxnMatch) fromRaw.clientTxnId = clientTxnMatch[1];
         if (Object.keys(fromRaw).length) { parsed = fromRaw; }
       }
 
@@ -247,9 +251,84 @@ const normalizeRechargePayload = (req, res, next) => {
   const circle = req.body.circleId || req.body.circle || req.body.state;
   if (circle) req.body.circleId = String(circle).trim();
 
+  const clientTxn =
+    req.body.clientTxnId ||
+    req.body.customTxnId ||
+    req.body.retailerTxnId ||
+    req.body.externalTxnId ||
+    req.body.order_id ||
+    req.body.orderId ||
+    req.body.refId ||
+    req.query.clientTxnId ||
+    req.query.customTxnId ||
+    req.query.retailerTxnId ||
+    req.query.externalTxnId ||
+    req.query.order_id ||
+    req.query.orderId ||
+    req.query.refId;
+  if (clientTxn) req.body.clientTxnId = String(clientTxn).trim();
+
   if (!req.body.type) {
     req.body.type = 'MOBILE_PREPAID';
   }
+
+  next();
+};
+
+const simplifyStatusResponse = (req, res, next) => {
+  const originalJson = res.json.bind(res);
+
+  res.json = (body) => {
+    const txn = body?.data?.transaction || body?.transaction;
+    if (!txn) {
+      if (body && typeof body === 'object') {
+        const mobileNumber = getMobileNumber(null, req);
+        const amount = getAmount(null, req) || 0;
+        const message = body.message || (Array.isArray(body.errors) && body.errors.length > 0 ? (body.errors[0]?.message || body.errors[0]?.msg) : '') || 'Transaction not found';
+        const providerTxnId = body.providerTxnId || message || 'FAILED';
+        return originalJson({
+          status: 'failure',
+          txnId: null,
+          clientTxnId: req.params?.txnId || req.body?.clientTxnId || req.query?.clientTxnId || null,
+          providerTxnId,
+          operatorRef: null,
+          number: mobileNumber,
+          amount,
+          message,
+        });
+      }
+      return originalJson(body);
+    }
+
+    const rawStatus = String(txn.status || '').toUpperCase();
+    let status = 'failure';
+    if (rawStatus === 'SUCCESS') {
+      status = 'success';
+    } else if (['PENDING', 'PROCESSING', 'INITIATED'].includes(rawStatus)) {
+      status = 'pending';
+    } else {
+      status = 'failure';
+    }
+
+    const message = txn.providerMessage || txn.statusMessage || body.message || (status === 'success' ? 'Recharge successful' : (status === 'pending' ? 'Recharge is currently processing' : 'Recharge failed'));
+    const providerTxnId = txn.providerTxnId || txn.operatorRef || txn.mroboticsRcId || (txn.txnId ? String(txn.txnId) : '') || message || 'FAILED';
+    const mobileNumber = getMobileNumber(txn, req);
+    const amount = getAmount(txn, req);
+
+    return originalJson({
+      status,
+      txnId: txn.txnId || null,
+      clientTxnId: txn.clientTxnId || null,
+      providerTxnId,
+      operatorRef: txn.operatorRef || null,
+      number: mobileNumber,
+      amount: amount !== '' ? Number(amount) : 0,
+      operator: txn.operator?.name || txn.operator?.code || txn.operator || null,
+      circle: txn.circle?.name || txn.circle?.code || txn.circle || null,
+      message,
+      createdAt: txn.createdAt || null,
+    });
+  };
 
   next();
 };
@@ -300,7 +379,7 @@ router.get(
 
 router.get(
   '/recharge/:txnId',
-  simplifyRechargeResponse,
+  simplifyStatusResponse,
   authorizePermissions(PERMISSIONS.RECHARGE_STATUS),
   rechargeStatusValidator,
   rechargeController.getStatus,
@@ -334,11 +413,11 @@ router.use('/recharge', (err, req, res, next) => {
   const statusCode = err.statusCode || 500;
   const message = err.message || 'Internal server error';
   const mobileNumber = getMobileNumber(null, req);
-  const amount = getAmount(null, req);
+  const amount = getAmount(null, req) || 0;
   const providerTxnId = message || 'FAILED';
 
   return res.status(statusCode).json({
-    success: false,
+    status: 'failure',
     providerTxnId,
     number: mobileNumber,
     amount,
