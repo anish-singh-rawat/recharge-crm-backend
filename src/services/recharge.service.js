@@ -297,6 +297,9 @@ export const rechargeService = {
 
       rechargeLogger.error('All providers failed', { txnId, error: errMsg });
 
+      const isRetryable = providerErr.isRetryable === true;
+      const nextRetryAt = isRetryable ? calcNextRetryAt(0) : null;
+
       const providerResult = providerErr.providerResult || {};
       const providerTxnId = providerResult.providerTxnId || null;
       const operatorRef = providerResult.operatorRef || null;
