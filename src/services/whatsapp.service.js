@@ -89,7 +89,9 @@ class WhatsAppService {
     this._reconnectTimer = null;
     this._listeners = new Set();
     this._reconnectAttempt = 0;
-    this._maxReconnectAttempts = 15;
+    // No hard cap — retry forever at capped 30s interval, just like WhatsApp Web does.
+    // Setting to Infinity prevents the service from permanently giving up after network blips.
+    this._maxReconnectAttempts = Infinity;
     this._socketId = 0; // Track socket generations to prevent stale event handlers
     this.messageQueue = new MessageQueue();
   }
@@ -214,7 +216,8 @@ class WhatsAppService {
       return this.getStatus();
     }
 
-    // If starting fresh without a registered session, clear any stale creds so QR emits instantly
+    // Clear stale/partial creds ONLY when there is genuinely NO valid session on disk.
+    // NEVER clear auth when the session exists — that would unlink an already-paired device.
     if (!this.hasSessionFiles()) {
       this._clearAuth();
     }
@@ -436,19 +439,24 @@ class WhatsAppService {
           undefined,
         ].includes(statusCode) || statusCode >= 500;
 
-        if (shouldReconnect && this._reconnectAttempt < this._maxReconnectAttempts) {
-          const delay = Math.min(1500 * Math.pow(2, this._reconnectAttempt), 30000);
-          this._reconnectAttempt++;
-          logger.info(`[WhatsApp] Reconnecting in ${delay}ms (attempt ${this._reconnectAttempt}/${this._maxReconnectAttempts}, reason: ${reason}, code: ${statusCode})...`);
+        if (shouldReconnect) {
+          // Cap the attempt counter at 10 so the delay stays at 30s max forever.
+          // We NEVER stop retrying — network blips are temporary; giving up = permanent loss of session.
+          if (this._reconnectAttempt < 10) {
+            this._reconnectAttempt++;
+          }
+          const delay = Math.min(1500 * Math.pow(2, this._reconnectAttempt), 30_000);
+          logger.info(`[WhatsApp] Reconnecting in ${delay}ms (attempt ${this._reconnectAttempt}, reason: ${reason}, code: ${statusCode})...`);
           this.status = 'connecting';
           this._notifyListeners('status', { status: this.status });
           this._scheduleReconnect(delay);
         } else {
-          logger.warn(`[WhatsApp] Not reconnecting (code: ${statusCode}, attempts: ${this._reconnectAttempt})`);
-          this.status = 'disconnected';
-          this.userPhone = null;
-          this._qrWasShown = false;
+          // Only truly give up on codes that are not retryable (e.g. bad session).
+          logger.warn(`[WhatsApp] Non-retryable disconnect (code: ${statusCode}). Scheduling slow retry in 60s...`);
+          this.status = 'connecting';
           this._notifyListeners('status', { status: this.status });
+          // Still retry — the user should never have to manually re-scan QR due to a transient error.
+          this._scheduleReconnect(60_000);
         }
       }
     });
@@ -467,14 +475,12 @@ class WhatsAppService {
       if (!this.destroyed) {
         this._createSocket().catch((err) => {
           logger.error(`[WhatsApp] Reconnect failed: ${err.message}`);
-          if (this._reconnectAttempt < this._maxReconnectAttempts) {
-            const nextDelay = Math.min(1500 * Math.pow(2, this._reconnectAttempt), 30000);
+          // On socket creation error, keep retrying at 30s intervals — never give up.
+          if (this._reconnectAttempt < 10) {
             this._reconnectAttempt++;
-            this._scheduleReconnect(nextDelay);
-          } else {
-            this.status = 'disconnected';
-            this._notifyListeners('status', { status: this.status });
           }
+          const nextDelay = Math.min(1500 * Math.pow(2, this._reconnectAttempt), 30_000);
+          this._scheduleReconnect(nextDelay);
         });
       }
     }, delay);
