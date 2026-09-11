@@ -60,6 +60,19 @@ const partnerOrderSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    paymentHistory: {
+      type: [
+        {
+          receivedAmount: { type: Number, required: true },
+          paidBefore:     { type: Number, default: 0 },
+          paidAfter:      { type: Number, required: true },
+          dueAfter:       { type: Number, required: true },
+          receivedAt:     { type: Date,   default: Date.now },
+          note:           { type: String, default: '' },
+        },
+      ],
+      default: [],
+    },
   },
   {
     timestamps: true,

@@ -77,9 +77,27 @@ class PartnerOrderService {
             ? 'partially_paid'
             : 'pending';
 
+        let needsSave = false;
         if (order.dueAmount !== expectedDue || order.paymentStatus !== expectedStatus) {
           order.dueAmount = expectedDue;
           order.paymentStatus = expectedStatus;
+          needsSave = true;
+        }
+
+        if (paidAmt > 0 && (!order.paymentHistory || order.paymentHistory.length === 0)) {
+          if (!order.paymentHistory) order.paymentHistory = [];
+          order.paymentHistory.push({
+            receivedAmount: paidAmt,
+            paidBefore: 0,
+            paidAfter: paidAmt,
+            dueAfter: expectedDue,
+            receivedAt: order.updatedAt || order.createdAt || new Date(),
+            note: 'Initial payment record',
+          });
+          needsSave = true;
+        }
+
+        if (needsSave) {
           await order.save();
         }
       }
@@ -355,7 +373,26 @@ class PartnerOrderService {
     }
 
     const numericPaid = Math.max(0, parseFloat(paidAmount) || 0);
+    const paidBefore = order.paidAmount || 0;
+    const receivedAmount = Math.round((numericPaid - paidBefore) * 100) / 100;
+
     order.paidAmount = numericPaid;
+
+    // Compute dueAfter based on 97% net payable
+    const netPayable = Math.round((order.orderAmount || 0) * 0.97 * 100) / 100;
+    const dueAfter = Math.max(0, Math.round((netPayable - numericPaid) * 100) / 100);
+
+    // Always record a history entry when paidAmount actually changes
+    if (numericPaid !== paidBefore) {
+      order.paymentHistory.push({
+        receivedAmount,
+        paidBefore,
+        paidAfter: numericPaid,
+        dueAfter,
+        receivedAt: new Date(),
+      });
+    }
+
     await order.save();
 
     let whatsappInfo = { queued: false, reason: '' };
@@ -456,7 +493,23 @@ class PartnerOrderService {
 
     // Set paidAmount = netPayable (orderAmount - 3% retailer commission) for each so dueAmount becomes 0 via pre-save hook
     for (const order of orders) {
-      order.paidAmount = Math.round((order.orderAmount || 0) * 0.97 * 100) / 100;
+      const netPayable = Math.round((order.orderAmount || 0) * 0.97 * 100) / 100;
+      const paidBefore = order.paidAmount || 0;
+      if (netPayable !== paidBefore) {
+        const receivedAmount = Math.round((netPayable - paidBefore) * 100) / 100;
+        if (!order.paymentHistory) {
+          order.paymentHistory = [];
+        }
+        order.paymentHistory.push({
+          receivedAmount,
+          paidBefore,
+          paidAfter: netPayable,
+          dueAfter: 0,
+          receivedAt: new Date(),
+          note: 'Bulk marked as paid',
+        });
+      }
+      order.paidAmount = netPayable;
       await order.save();
     }
 

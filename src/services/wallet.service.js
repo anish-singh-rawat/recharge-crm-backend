@@ -328,6 +328,31 @@ export const walletService = {
       exactFields: ['type', 'status'],
       dateField: 'createdAt',
     });
+
+    if (query.userId) {
+      filter.user = mongoose.Types.ObjectId.isValid(query.userId)
+        ? new mongoose.Types.ObjectId(query.userId)
+        : query.userId;
+    } else if (query.search) {
+      const cleanSearch = String(query.search).trim();
+      const User = mongoose.model('User');
+      const matchingUsers = await User.find({
+        $or: [
+          { name: { $regex: cleanSearch, $options: 'i' } },
+          { phone: { $regex: cleanSearch, $options: 'i' } },
+          { email: { $regex: cleanSearch, $options: 'i' } },
+        ],
+      }).select('_id').lean();
+
+      const userIds = matchingUsers.map((u) => u._id);
+
+      filter.$or = [
+        { user: { $in: userIds } },
+        { txnId: { $regex: cleanSearch, $options: 'i' } },
+        { description: { $regex: cleanSearch, $options: 'i' } },
+      ];
+    }
+
     return walletTransactionRepository.findPaginatedWithUser(filter, { ...pagination, sort });
   },
 

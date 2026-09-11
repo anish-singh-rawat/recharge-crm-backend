@@ -80,14 +80,17 @@ export const walletController = {
   }),
 
   getLedger: asyncHandler(async (req, res) => {
-    const { items, total } = await walletService.getLedger(req.query);
+    const { items, total, summary } = await walletService.getLedger(req.query);
     sendSuccess(res, {
       message: 'Wallet ledger retrieved',
-      data: paginatedResponse(items, {
-        page: parseInt(req.query.page, 10) || 1,
-        limit: parseInt(req.query.limit, 10) || 20,
-        total,
-      }),
+      data: {
+        ...paginatedResponse(items, {
+          page: parseInt(req.query.page, 10) || 1,
+          limit: parseInt(req.query.limit, 10) || 20,
+          total,
+        }),
+        summary,
+      },
     });
   }),
 };

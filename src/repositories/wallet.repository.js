@@ -141,7 +141,19 @@ class WalletTransactionRepository extends BaseRepository {
 
   async findPaginatedWithUser(filter = {}, { page = 1, limit = 20, skip = 0, sort = { createdAt: -1 } } = {}) {
     const effectiveSkip = skip || (page - 1) * limit;
-    const [items, total] = await Promise.all([
+
+    const summaryFilter = { ...filter };
+    delete summaryFilter.type;
+
+    if (typeof summaryFilter.user === 'string' && mongoose.Types.ObjectId.isValid(summaryFilter.user)) {
+      summaryFilter.user = new mongoose.Types.ObjectId(summaryFilter.user);
+    } else if (summaryFilter.user?.$in && Array.isArray(summaryFilter.user.$in)) {
+      summaryFilter.user.$in = summaryFilter.user.$in.map((id) =>
+        typeof id === 'string' && mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id
+      );
+    }
+
+    const [items, total, summaryAgg] = await Promise.all([
       WalletTransaction.find(filter)
         .sort(sort)
         .skip(effectiveSkip)
@@ -149,8 +161,38 @@ class WalletTransactionRepository extends BaseRepository {
         .populate({ path: 'user', select: 'name email phone role' })
         .lean(),
       WalletTransaction.countDocuments(filter),
+      WalletTransaction.aggregate([
+        { $match: summaryFilter },
+        {
+          $group: {
+            _id: '$type',
+            count: { $sum: 1 },
+            totalAmount: { $sum: '$amount' },
+          },
+        },
+      ]),
     ]);
-    return { items, total };
+
+    const summary = {
+      creditCount: 0,
+      creditAmount: 0,
+      debitCount: 0,
+      debitAmount: 0,
+      totalCount: 0,
+    };
+
+    summaryAgg.forEach((grp) => {
+      if (grp._id === 'CREDIT') {
+        summary.creditCount = grp.count;
+        summary.creditAmount = Math.round((grp.totalAmount || 0) * 100) / 100;
+      } else if (grp._id === 'DEBIT') {
+        summary.debitCount = grp.count;
+        summary.debitAmount = Math.round((grp.totalAmount || 0) * 100) / 100;
+      }
+      summary.totalCount += grp.count;
+    });
+
+    return { items, total, summary };
   }
 
   async getWalletSummary(walletId, startDate, endDate) {
