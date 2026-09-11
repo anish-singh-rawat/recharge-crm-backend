@@ -30,10 +30,7 @@ function toJid(number) {
   return `${clean}@s.whatsapp.net`;
 }
 
-/**
- * Anti-Ban Sequential Message Queue
- * Ensures natural spacing and prevents rapid flood bans from WhatsApp servers.
- */
+
 class MessageQueue {
   constructor() {
     this.queue = [];
@@ -58,7 +55,6 @@ class MessageQueue {
     } catch (err) {
       reject(err);
     } finally {
-      // Natural jitter cooldown between consecutive messages (2.0s - 3.5s)
       const cooldown = 2000 + Math.floor(Math.random() * 1500);
       setTimeout(() => {
         this.processing = false;
@@ -81,7 +77,7 @@ class WhatsAppService {
     this.qrGeneratedAt = null;
     this._qrWasShown = false;
     this._version = null;
-    this.status = 'disconnected'; // 'disconnected' | 'launching' | 'qr_ready' | 'connecting' | 'connected'
+    this.status = 'disconnected';
     this.userPhone = null;
     this.destroyed = false;
     this._qrExpireTimer = null;
@@ -89,10 +85,8 @@ class WhatsAppService {
     this._reconnectTimer = null;
     this._listeners = new Set();
     this._reconnectAttempt = 0;
-    // No hard cap — retry forever at capped 30s interval, just like WhatsApp Web does.
-    // Setting to Infinity prevents the service from permanently giving up after network blips.
     this._maxReconnectAttempts = Infinity;
-    this._socketId = 0; // Track socket generations to prevent stale event handlers
+    this._socketId = 0;
     this.messageQueue = new MessageQueue();
   }
 
@@ -103,8 +97,7 @@ class WhatsAppService {
       if (!fs.existsSync(credsPath)) return false;
       const content = fs.readFileSync(credsPath, 'utf8');
       const data = JSON.parse(content);
-      // Valid session ONLY if registered is explicitly true
-      return data.registered === true;
+      return Boolean(data?.me?.id || data?.account || data?.registered === true);
     } catch {
       return false;
     }
@@ -216,8 +209,6 @@ class WhatsAppService {
       return this.getStatus();
     }
 
-    // Clear stale/partial creds ONLY when there is genuinely NO valid session on disk.
-    // NEVER clear auth when the session exists — that would unlink an already-paired device.
     if (!this.hasSessionFiles()) {
       this._clearAuth();
     }
@@ -239,6 +230,9 @@ class WhatsAppService {
     if (this.status === 'connected' && this.isReady) {
       throw new Error('WhatsApp is already connected. Disconnect first to link another account.');
     }
+    if (this.hasSessionFiles()) {
+      throw new Error('An active WhatsApp session is already paired. Please click Disconnect first if you want to link a new device.');
+    }
 
     logger.info('[WhatsApp] Regenerating fresh QR code...');
 
@@ -246,8 +240,6 @@ class WhatsAppService {
     this._closeSocket(this.sock);
     this.sock = null;
 
-    // CRITICAL: Clean up stale session files immediately so Baileys does not attempt
-    // to resume an unregistered session and hangs for 30 seconds.
     this._clearAuth();
 
     this.status = 'launching';
@@ -277,7 +269,6 @@ class WhatsAppService {
     const version = this._version || [2, 3000, 1043857760];
     const socketId = ++this._socketId;
 
-    // Use exact browser signature from wpp-connection for fast pairing
     const browserIdentity = ['WhatsApp', 'Chrome', '3.0'];
 
     const sock = makeWASocket({
@@ -289,13 +280,13 @@ class WhatsAppService {
       },
       browser: browserIdentity,
       printQRInTerminal: false,
-      keepAliveIntervalMs: 25_000,
+      keepAliveIntervalMs: 30_000,
       retryRequestDelayMs: 2_000,
-      markOnlineOnConnect: false,
+      markOnlineOnConnect: true,
       generateHighQualityLinkPreview: false,
       syncFullHistory: false,
       fireInitQueries: true,
-      maxMsgRetryCount: 3,
+      maxMsgRetryCount: 5,
       emitOwnEvents: true,
       patchMessageBeforeSending: (message) => message,
     });
@@ -305,7 +296,6 @@ class WhatsAppService {
     sock.ev.on('creds.update', async (update) => {
       await saveCreds();
 
-      // When the mobile phone scans the QR, Baileys emits creds.update
       if (!this.isReady && (this.status === 'qr_ready' || this.latestQR || this._qrWasShown)) {
         logger.info('[WhatsApp] 📱 QR code scanned by mobile phone! Switching to connecting state...');
         this.status = 'connecting';
@@ -334,7 +324,12 @@ class WhatsAppService {
 
           this._qrExpireTimer = setTimeout(() => {
             if (socketId !== this._socketId) return;
-            if (this.latestQR === base64Png && !this.isReady && !this.destroyed) {
+            if (
+              this.latestQR === base64Png &&
+              !this.isReady &&
+              !this.destroyed &&
+              this.status === 'qr_ready'
+            ) {
               logger.info('[WhatsApp] Current QR expired. Auto-refreshing...');
               this.latestQR = null;
               this._notifyListeners('qr_expired', { status: 'launching', qr: null });
@@ -369,11 +364,14 @@ class WhatsAppService {
         this.isReady = true;
         this.latestQR = null;
         this.qrGeneratedAt = null;
-        this._qrWasShown = false;
+        this._qrWasShown = false;   
         this.status = 'connected';
         this._reconnectAttempt = 0;
 
-        if (this._qrExpireTimer) clearTimeout(this._qrExpireTimer);
+        if (this._qrExpireTimer) {
+          clearTimeout(this._qrExpireTimer);
+          this._qrExpireTimer = null;
+        }
         if (this._autoRegenTimer) clearTimeout(this._autoRegenTimer);
 
         const userJid = sock.user?.id || '';
@@ -416,7 +414,6 @@ class WhatsAppService {
           return;
         }
 
-        // 515 restartRequired is the exact signal Baileys emits when a phone scans the QR code
         if (statusCode === DisconnectReason.restartRequired) {
           logger.info('[WhatsApp] 📱 Phone scanned QR code! (Restart required 515) Reopening socket in connecting mode...');
           this.status = 'connecting';
@@ -430,34 +427,14 @@ class WhatsAppService {
           return;
         }
 
-        const shouldReconnect = [
-          DisconnectReason.connectionLost,     // 408
-          DisconnectReason.timedOut,           // 408
-          DisconnectReason.connectionClosed,   // 428
-          DisconnectReason.connectionReplaced, // 440
-          DisconnectReason.multideviceMismatch, // 411
-          undefined,
-        ].includes(statusCode) || statusCode >= 500;
-
-        if (shouldReconnect) {
-          // Cap the attempt counter at 10 so the delay stays at 30s max forever.
-          // We NEVER stop retrying — network blips are temporary; giving up = permanent loss of session.
-          if (this._reconnectAttempt < 10) {
-            this._reconnectAttempt++;
-          }
-          const delay = Math.min(1500 * Math.pow(2, this._reconnectAttempt), 30_000);
-          logger.info(`[WhatsApp] Reconnecting in ${delay}ms (attempt ${this._reconnectAttempt}, reason: ${reason}, code: ${statusCode})...`);
-          this.status = 'connecting';
-          this._notifyListeners('status', { status: this.status });
-          this._scheduleReconnect(delay);
-        } else {
-          // Only truly give up on codes that are not retryable (e.g. bad session).
-          logger.warn(`[WhatsApp] Non-retryable disconnect (code: ${statusCode}). Scheduling slow retry in 60s...`);
-          this.status = 'connecting';
-          this._notifyListeners('status', { status: this.status });
-          // Still retry — the user should never have to manually re-scan QR due to a transient error.
-          this._scheduleReconnect(60_000);
+        if (this._reconnectAttempt < 10) {
+          this._reconnectAttempt++;
         }
+        const delay = Math.min(1500 * Math.pow(2, this._reconnectAttempt), 30_000);
+        logger.info(`[WhatsApp] Reconnecting in ${delay}ms (attempt ${this._reconnectAttempt}, reason: ${reason}, code: ${statusCode})...`);
+        this.status = 'connecting';
+        this._notifyListeners('status', { status: this.status });
+        this._scheduleReconnect(delay);
       }
     });
 
@@ -475,7 +452,6 @@ class WhatsAppService {
       if (!this.destroyed) {
         this._createSocket().catch((err) => {
           logger.error(`[WhatsApp] Reconnect failed: ${err.message}`);
-          // On socket creation error, keep retrying at 30s intervals — never give up.
           if (this._reconnectAttempt < 10) {
             this._reconnectAttempt++;
           }
@@ -486,9 +462,6 @@ class WhatsAppService {
     }, delay);
   }
 
-  /**
-   * Send WhatsApp text message with recipient verification and safe human behavior simulation.
-   */
   async sendTextMessage(number, message) {
     if (!this.isReady || !this.sock) {
       throw new Error('WhatsApp is not connected. Please scan QR code first.');
@@ -511,7 +484,6 @@ class WhatsAppService {
 
     const cleanText = String(message).trim();
 
-    // Enqueue in the rate-limited anti-ban queue
     return this.messageQueue.enqueue(async () => {
       if (!this.isReady || !this.sock) {
         throw new Error('WhatsApp disconnected while message was waiting in queue.');
@@ -519,7 +491,6 @@ class WhatsAppService {
 
       try {
         let targetJid = jid;
-        // Verify on WhatsApp
         try {
           const results = await this.sock.onWhatsApp(cleanNumber);
           if (results && results.length > 0 && results[0]?.exists) {
@@ -532,34 +503,26 @@ class WhatsAppService {
         const isSelf = this.userPhone && (cleanNumber === this.userPhone || targetJid.includes(this.userPhone));
 
         if (!isSelf) {
-          // 1. Subscribe to presence
           try {
             await this.sock.presenceSubscribe(targetJid);
           } catch (_) {}
-
-          // 2. Natural pause before typing
           await sleep(300 + Math.floor(Math.random() * 250));
 
-          // 3. Send "composing" presence
           try {
             await this.sock.sendPresenceUpdate('composing', targetJid);
           } catch (_) {}
 
-          // 4. Typing simulation (1.0s to 2.2s)
           const typingDelay = Math.min(Math.max(cleanText.length * 25, 1000), 2200) + Math.floor(Math.random() * 300);
           await sleep(typingDelay);
 
-          // 5. Send "paused" presence
           try {
             await this.sock.sendPresenceUpdate('paused', targetJid);
           } catch (_) {}
           await sleep(150);
         } else {
-          // Self-messaging doesn't support composing presence
           await sleep(250);
         }
 
-        // Send the message
         const result = await this.sock.sendMessage(targetJid, { text: cleanText });
         logger.info(`[WhatsApp] Message sent to ${cleanNumber} (${targetJid}, ID: ${result?.key?.id})`);
         return {
@@ -591,7 +554,6 @@ class WhatsAppService {
     logger.info('[WhatsApp] Full disconnect and unpair requested by user.');
     this._clearTimers();
 
-    // If socket is not currently ready but we have stored credentials, attempt a quick connect to unlink
     if ((!this.sock || !this.isReady) && this.hasSessionFiles()) {
       try {
         logger.info('[WhatsApp] Reconnecting temporary socket to unlink companion device from WhatsApp server...');
@@ -610,7 +572,6 @@ class WhatsAppService {
       const jid = this.sock.user?.id || this.sock.authState?.creds?.me?.id;
       logger.info(`[WhatsApp] Unlinking device for JID: ${jid || 'unknown'}...`);
 
-      // 1. Send remove-companion-device IQ to WhatsApp server so the device is unlinked on the user's phone
       if (jid) {
         try {
           await Promise.race([
@@ -639,7 +600,6 @@ class WhatsAppService {
         }
       }
 
-      // 2. Call sock.logout() to finalize unregistration with Baileys
       try {
         await Promise.race([
           this.sock.logout('User initiated disconnect'),
@@ -649,10 +609,7 @@ class WhatsAppService {
       } catch (err) {
         logger.warn(`[WhatsApp] sock.logout notice: ${err.message}`);
       }
-
-      // Allow 500ms for WhatsApp servers to push unpair notification to the user's phone
       await sleep(500);
-
       this._closeSocket(this.sock);
       this.sock = null;
     }
@@ -665,7 +622,6 @@ class WhatsAppService {
     this.userPhone = null;
     this._qrWasShown = false;
 
-    // Remove all session credentials from disk
     await sleep(200);
     this._clearAuth();
 
