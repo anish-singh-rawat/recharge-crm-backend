@@ -56,6 +56,37 @@ export function formatOrderTime(rawTime) {
 }
 
 class PartnerOrderService {
+  constructor() {
+    this._hasSyncedDueAmounts = false;
+  }
+
+  async syncExistingOrderDueAmounts() {
+    if (this._hasSyncedDueAmounts) return;
+    this._hasSyncedDueAmounts = true;
+    try {
+      const orders = await PartnerOrder.find();
+      for (const order of orders) {
+        const orderAmt = Number(order.orderAmount) || 0;
+        const netPayable = Math.round(orderAmt * 0.97 * 100) / 100;
+        const paidAmt = Number(order.paidAmount) || 0;
+        const expectedDue = Math.max(0, Math.round((netPayable - paidAmt) * 100) / 100);
+        const expectedStatus =
+          paidAmt >= netPayable && netPayable > 0
+            ? 'paid'
+            : paidAmt > 0
+            ? 'partially_paid'
+            : 'pending';
+
+        if (order.dueAmount !== expectedDue || order.paymentStatus !== expectedStatus) {
+          order.dueAmount = expectedDue;
+          order.paymentStatus = expectedStatus;
+          await order.save();
+        }
+      }
+    } catch (err) {
+      logger.warn('[PartnerOrder] Could not sync due amounts:', err.message);
+    }
+  }
 
   async importExcel(buffer) {
     if (!buffer || buffer.length === 0) {
@@ -208,6 +239,7 @@ class PartnerOrderService {
         continue;
       }
 
+      const netPayable = Math.round((row.orderAmount || 0) * 0.97 * 100) / 100;
       await PartnerOrder.create({
         orderId: row.orderId,
         orderTime: row.orderTime,
@@ -216,7 +248,7 @@ class PartnerOrderService {
         orderAmount: row.orderAmount,
         partnerPrmId: row.partnerPrmId,
         paidAmount: 0,
-        dueAmount: row.orderAmount,
+        dueAmount: netPayable,
         paymentStatus: 'pending',
       });
       importedOrders++;
@@ -238,6 +270,7 @@ class PartnerOrderService {
    * Lists orders with pagination, search, status filter, and joined partner mobile numbers
    */
   async listOrders({ page = 1, limit = 20, search = '', status = 'all', prmId = '' }) {
+    await this.syncExistingOrderDueAmounts();
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
     const skip = (pageNum - 1) * limitNum;
@@ -421,9 +454,9 @@ class PartnerOrderService {
       throw new BusinessError('No matching orders found.');
     }
 
-    // Set paidAmount = orderAmount for each so dueAmount becomes 0 via pre-save hook
+    // Set paidAmount = netPayable (orderAmount - 3% retailer commission) for each so dueAmount becomes 0 via pre-save hook
     for (const order of orders) {
-      order.paidAmount = order.orderAmount;
+      order.paidAmount = Math.round((order.orderAmount || 0) * 0.97 * 100) / 100;
       await order.save();
     }
 
@@ -545,6 +578,7 @@ class PartnerOrderService {
   }
 
   async getSummary() {
+    await this.syncExistingOrderDueAmounts();
     const [totalOrders, dueOrdersCount, aggregates, totalPartners, partnersWithMobile] =
       await Promise.all([
         PartnerOrder.countDocuments(),

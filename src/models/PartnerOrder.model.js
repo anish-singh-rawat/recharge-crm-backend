@@ -42,7 +42,8 @@ const partnerOrderSchema = new mongoose.Schema(
     dueAmount: {
       type: Number,
       default: function () {
-        return Math.max(0, (this.orderAmount || 0) - (this.paidAmount || 0));
+        const netPayable = Math.round((this.orderAmount || 0) * 0.97 * 100) / 100;
+        return Math.max(0, Math.round((netPayable - (this.paidAmount || 0)) * 100) / 100);
       },
     },
     paymentStatus: {
@@ -71,13 +72,14 @@ partnerOrderSchema.index({ orderId: 1, partnerPrmId: 1 }, { unique: true });
 partnerOrderSchema.index({ partnerPrmId: 1, createdAt: -1 });
 partnerOrderSchema.index({ dueAmount: 1 });
 
-// Pre-save hook to ensure dueAmount and paymentStatus remain consistent
+// Pre-save hook to ensure dueAmount and paymentStatus remain consistent (3% retailer commission)
 partnerOrderSchema.pre('save', function (next) {
   const orderAmt = Number(this.orderAmount) || 0;
+  const netPayable = Math.round(orderAmt * 0.97 * 100) / 100;
   const paidAmt = Number(this.paidAmount) || 0;
-  this.dueAmount = Math.max(0, orderAmt - paidAmt);
+  this.dueAmount = Math.max(0, Math.round((netPayable - paidAmt) * 100) / 100);
 
-  if (paidAmt >= orderAmt && orderAmt > 0) {
+  if (paidAmt >= netPayable && netPayable > 0) {
     this.paymentStatus = 'paid';
   } else if (paidAmt > 0) {
     this.paymentStatus = 'partially_paid';
