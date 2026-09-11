@@ -108,7 +108,8 @@ export const reportController = {
   exportRechargeReport: asyncHandler(async (req, res) => {
     const { items } = await reportService.getRechargeReport({
       ...userScope(req),
-      limit: 10000,
+      limit: 10000000,
+      isExport: true,
       page: 1,
     });
     sendSuccess(res, { message: 'Export data retrieved', data: { items } });
@@ -117,7 +118,8 @@ export const reportController = {
   exportWalletReport: asyncHandler(async (req, res) => {
     const { items } = await reportService.getWalletReport({
       ...walletScope(req),
-      limit: 10000,
+      limit: 10000000,
+      isExport: true,
       page: 1,
     });
     sendSuccess(res, { message: 'Export data retrieved', data: { items } });
@@ -127,7 +129,8 @@ export const reportController = {
     const { items } = await reportService.getRechargeReport({
       ...req.query,
       userId: req.user.id,
-      limit: 10000,
+      limit: 10000000,
+      isExport: true,
       page: 1,
     });
     sendSuccess(res, { message: 'Export data retrieved', data: { items } });
@@ -137,7 +140,8 @@ export const reportController = {
     const { items } = await reportService.getWalletReport({
       ...req.query,
       user: req.user.id,
-      limit: 10000,
+      limit: 10000000,
+      isExport: true,
       page: 1,
     });
     sendSuccess(res, { message: 'Export data retrieved', data: { items } });

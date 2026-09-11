@@ -1,5 +1,5 @@
 import * as xlsx from 'xlsx';
-import { PartnerOrder, PartnerUser } from '../models/index.js';
+import { PartnerOrder, PartnerUser, User } from '../models/index.js';
 import { whatsappService } from './whatsapp.service.js';
 import { getIO } from '../socket/socket.js';
 import logger from '../config/logger.js';
@@ -616,31 +616,64 @@ class PartnerOrderService {
       throw new BusinessError('Message template cannot be empty.');
     }
 
-    const filter = { dueAmount: { $gt: 0 } };
+    const filter = {};
 
     if (Array.isArray(orderIds) && orderIds.length > 0) {
       filter._id = { $in: orderIds };
     } else if (Array.isArray(partnerPrmIds) && partnerPrmIds.length > 0) {
       filter.partnerPrmId = { $in: partnerPrmIds };
+      filter.dueAmount = { $gt: 0 };
+    } else {
+      filter.dueAmount = { $gt: 0 };
     }
 
-    const dueOrders = await PartnerOrder.find(filter).lean();
-    if (dueOrders.length === 0) {
-      throw new BusinessError('No orders with pending dues found matching the selection.');
+    const targetOrders = await PartnerOrder.find(filter).lean();
+    if (targetOrders.length === 0) {
+      throw new BusinessError(
+        orderIds.length > 0
+          ? 'No orders found matching the selected IDs.'
+          : 'No orders with pending dues found matching the selection.'
+      );
     }
 
     // Match each order with its partner's mobile number
-    const prmIds = [...new Set(dueOrders.map((o) => o.partnerPrmId))];
-    const partners = await PartnerUser.find({ partnerPrmId: { $in: prmIds } }).lean();
-    const partnerMap = new Map(partners.map((p) => [p.partnerPrmId, p]));
+    const prmIds = [...new Set(targetOrders.map((o) => String(o.partnerPrmId || '').trim()).filter(Boolean))];
+    const partners = await PartnerUser.find({
+      $or: [
+        { partnerPrmId: { $in: prmIds } },
+        ...prmIds.map((p) => ({ partnerPrmId: { $regex: new RegExp(`^${p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } })),
+      ],
+    }).lean();
+
+    const partnerMap = new Map();
+    partners.forEach((p) => {
+      partnerMap.set(String(p.partnerPrmId).trim().toLowerCase(), p);
+    });
+
+    // Also check User (retailer) collection if any partner name or phone matches
+    const partnerNames = [...new Set(targetOrders.map((o) => String(o.partnerName || '').trim()).filter(Boolean))];
+    let usersByName = new Map();
+    if (partnerNames.length > 0) {
+      try {
+        const users = await User.find({ name: { $in: partnerNames }, phone: { $exists: true, $ne: '' } }).lean();
+        users.forEach((u) => usersByName.set(u.name.trim().toLowerCase(), u.phone));
+      } catch (e) {
+        // ignore
+      }
+    }
 
     // Filter to items that have a valid mobile number
     const queueItems = [];
     let skippedNoPhone = 0;
 
-    for (const order of dueOrders) {
-      const partner = partnerMap.get(order.partnerPrmId);
-      const rawMobile = partner?.mobileNumber || '';
+    for (const order of targetOrders) {
+      const partnerKey = String(order.partnerPrmId || '').trim().toLowerCase();
+      const partner = partnerMap.get(partnerKey);
+      let rawMobile = partner?.mobileNumber || '';
+      if (!rawMobile && order.partnerName) {
+        rawMobile = usersByName.get(order.partnerName.trim().toLowerCase()) || '';
+      }
+
       let cleanMobile = String(rawMobile).replace(/[^0-9]/g, '');
 
       if (!cleanMobile || cleanMobile.length < 10) {
@@ -658,10 +691,11 @@ class PartnerOrderService {
         .replace(/{orderId}/g, order.orderId || '')
         .replace(/{orderAmount}/g, `₹${order.orderAmount.toFixed(2)}`)
         .replace(/{paidAmount}/g, `₹${(order.paidAmount || 0).toFixed(2)}`)
-        .replace(/{dueAmount}/g, `₹${order.dueAmount.toFixed(2)}`)
+        .replace(/{dueAmount}/g, `₹${(order.dueAmount || 0).toFixed(2)}`)
         .replace(/{orderDate}/g, order.orderDate || '')
         .replace(/{orderTime}/g, formatOrderTime(order.orderTime) || '')
-        .replace(/{partnerPrmId}/g, order.partnerPrmId || '');
+        .replace(/{partnerPrmId}/g, order.partnerPrmId || '')
+        .replace(/{paymentStatus}/g, order.paymentStatus || ((order.dueAmount || 0) > 0 ? 'due' : 'paid'));
 
       queueItems.push({
         orderId: order._id,
@@ -676,7 +710,7 @@ class PartnerOrderService {
 
     if (queueItems.length === 0) {
       throw new BusinessError(
-        'None of the selected orders have a saved mobile number. Please add mobile numbers first.'
+        'None of the selected orders have a saved mobile number. Please add mobile numbers for the partner/retailer first.'
       );
     }
 

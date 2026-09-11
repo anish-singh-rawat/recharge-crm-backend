@@ -3,8 +3,24 @@ import { getISTStartOfDay, getISTEndOfDay } from './date.util.js';
 
 export const parsePagination = (query = {}) => {
   const page = Math.max(1, parseInt(query.page, 10) || 1);
-  const rawLimit = parseInt(query.limit, 10) || env.pagination.defaultPageSize;
-  const limit = Math.min(rawLimit, env.pagination.maxPageSize);
+  const isExport =
+    query.isExport === true ||
+    query.isExport === 'true' ||
+    query.unlimited === true ||
+    query.unlimited === 'true';
+
+  const rawLimit = parseInt(query.limit, 10);
+  let limit;
+
+  if (isExport) {
+    limit = rawLimit && rawLimit > 0 ? rawLimit : 100000;
+  } else if (rawLimit && rawLimit > env.pagination.maxPageSize && query.limit !== undefined) {
+    limit = rawLimit;
+  } else {
+    const defaultLimit = rawLimit || env.pagination.defaultPageSize;
+    limit = Math.min(defaultLimit, env.pagination.maxPageSize);
+  }
+
   const skip = (page - 1) * limit;
   return { page, limit, skip };
 };
