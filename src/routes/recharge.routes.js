@@ -73,4 +73,12 @@ router.post(
   rechargeController.refundRecharge,
 );
 
+router.post(
+  '/:txnId/sync-status',
+  authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN),
+  rechargeStatusValidator,
+  rechargeController.syncStatusAdmin,
+);
+
 export default router;
+

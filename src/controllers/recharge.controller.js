@@ -154,5 +154,19 @@ export const rechargeController = {
     });
     sendSuccess(res, { message: 'Recharge refunded successfully', data: { transaction: txn } });
   }),
+
+  syncStatusAdmin: asyncHandler(async (req, res) => {
+    const { changed, txn, newStatus, statusResult } = await rechargeService.syncStatusAdmin(
+      req.params.txnId,
+      req.user.id,
+    );
+    sendSuccess(res, {
+      message: changed
+        ? `Status synced to ${newStatus}`
+        : `Status unchanged (${newStatus})`,
+      data: { transaction: txn, changed, newStatus, statusResult },
+    });
+  }),
 };
+
 

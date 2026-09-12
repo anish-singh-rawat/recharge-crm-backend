@@ -1,18 +1,19 @@
 import mongoose from 'mongoose';
 import { rechargeTransactionRepository } from '../repositories/recharge.repository.js';
-import { walletRepository } from '../repositories/wallet.repository.js';
+import { walletRepository, walletTransactionRepository } from '../repositories/wallet.repository.js';
 import { operatorRepository, circleRepository } from '../repositories/operator.repository.js';
 import { notificationRepository } from '../repositories/notification.repository.js';
 import { auditLogRepository } from '../repositories/log.repository.js';
 import { walletService } from './wallet.service.js';
 import { mroboticsProvider } from './providers/mrobotics/index.js';
 import { realroboProvider } from './providers/realrobo/index.js';
-import { generateTxnId, generateCorrelationId } from '../utils/id.util.js';
+import { generateTxnId, generateCorrelationId, generateWalletTxnId } from '../utils/id.util.js';
 import { buildListQuery } from '../helpers/query.helper.js';
 import { assertWalletCanDebit } from '../helpers/wallet.helper.js';
 import { assertRetryable, assertRefundable, calcNextRetryAt } from '../helpers/recharge.helper.js';
 import { NotFoundError, RechargeError, WalletError } from '../helpers/error.helper.js';
 import { TRANSACTION_STATUS } from '../constants/transaction.js';
+import { WALLET_TRANSACTION_TYPE } from '../constants/wallet.js';
 import { AUDIT_ACTION, AUDIT_SEVERITY } from '../constants/audit.js';
 import { NOTIFICATION_EVENT, NOTIFICATION_TYPE } from '../constants/notification.js';
 import { rechargeLogger } from '../config/logger.js';
@@ -149,6 +150,46 @@ async function callProviderWithFallback({ mobileNumber, amount, operator, circle
       const errMsg = typeof err.message === 'string'
         ? err.message
         : err.errorMessage || 'Provider error';
+
+      // ── Timeout recovery: don't fail immediately; check what the provider says ──
+      if (err.isTimeout && providerName === 'realrobo') {
+        rechargeLogger.warn(`RealRobo timed out for ${txnId} — checking status before failing`, { txnId });
+        try {
+          const statusResult = await realroboProvider.checkStatus(txnId);
+          rechargeLogger.info(`RealRobo post-timeout status check`, { txnId, status: statusResult.status });
+
+          if (statusResult.status === TRANSACTION_STATUS.SUCCESS) {
+            // The recharge actually succeeded — return it as success
+            return {
+              result: {
+                ...statusResult,
+                rawResponse: statusResult,
+              },
+              usedProvider: providerName,
+            };
+          }
+
+          if (statusResult.status === TRANSACTION_STATUS.FAILED) {
+            // Confirmed failed — propagate normally so refund happens below
+            lastError = err;
+            lastError.usedProvider = providerName;
+            continue;
+          }
+
+          // Pending / unconfirmed — keep funds on hold; let webhook/cron resolve it
+          err.isPendingTimeout = true;
+          err.usedProvider = providerName;
+          err.statusCheckResult = statusResult;
+          throw err;
+        } catch (statusErr) {
+          if (statusErr.isPendingTimeout) throw statusErr;
+          // Status check itself failed — mark as pending so cron can resolve later
+          rechargeLogger.warn(`RealRobo status check failed after timeout`, { txnId, error: statusErr.message });
+          err.isPendingTimeout = true;
+          err.usedProvider = providerName;
+          throw err;
+        }
+      }
 
       rechargeLogger.warn(`Provider ${providerName} failed, trying next`, {
         txnId,
@@ -295,14 +336,44 @@ export const rechargeService = {
         ? providerErr.message
         : 'Recharge failed';
 
+      // ── Timeout / unconfirmed: keep funds on hold, mark PENDING ──────────────
+      if (providerErr.isPendingTimeout) {
+        const pendingUsedProvider = providerErr.usedProvider || null;
+        rechargeLogger.warn('Recharge status unconfirmed after timeout — marking PENDING', {
+          txnId,
+          usedProvider: pendingUsedProvider,
+        });
+
+        const pendingTxn = await rechargeTransactionRepository.updateStatus(txnId, TRANSACTION_STATUS.PENDING, {
+          statusMessage: 'Provider timed out — awaiting confirmation via webhook/cron',
+          isRetryable: false,
+          usedProvider: pendingUsedProvider,
+        });
+
+        notificationRepository.create({
+          user: user._id,
+          title: 'Recharge Pending',
+          message: `Your recharge of ₹${amount} for ${mobileNumber} is pending confirmation. Funds are on hold.`,
+          type: NOTIFICATION_TYPE.INFO,
+          event: NOTIFICATION_EVENT.RECHARGE_FAILED,
+          referenceId: txnId,
+        }).catch(() => {});
+
+        const pendingErr = new RechargeError('Recharge is pending confirmation. Your wallet will be updated automatically.');
+        pendingErr.transaction = pendingTxn;
+        pendingErr.statusCode = 202;
+        throw pendingErr;
+      }
+
+      // ── All providers failed definitively — refund immediately ────────────────
       rechargeLogger.error('All providers failed', { txnId, error: errMsg });
 
       const isRetryable = providerErr.isRetryable === true;
       const nextRetryAt = isRetryable ? calcNextRetryAt(0) : null;
 
-      const providerResult = providerErr.providerResult || {};
-      const providerTxnId = providerResult.providerTxnId || null;
-      const operatorRef = providerResult.operatorRef || null;
+      const providerResultOnErr = providerErr.providerResult || {};
+      const providerTxnId = providerResultOnErr.providerTxnId || null;
+      const operatorRef = providerResultOnErr.operatorRef || null;
       const usedProvider = providerErr.usedProvider || null;
 
       const failedTxn = await rechargeTransactionRepository.updateStatus(txnId, TRANSACTION_STATUS.FAILED, {
@@ -541,5 +612,96 @@ export const rechargeService = {
     }).catch(() => {});
 
     return updated;
+  },
+
+  /**
+   * Admin-only: force-sync the live status from the provider for any transaction.
+   * Useful to recover transactions marked FAILED due to timeout but actually succeeded.
+   */
+  async syncStatusAdmin(txnId, performedBy) {
+    const txn = await rechargeTransactionRepository.findByTxnIdFull(txnId);
+    if (!txn) throw new NotFoundError('Transaction not found');
+
+    const provider = txn.usedProvider === 'realrobo' ? realroboProvider : mroboticsProvider;
+    const checkId = txn.usedProvider === 'mrobotics'
+      ? (txn.providerTxnId || txn.txnId)
+      : txn.txnId;
+
+    const statusResult = await provider.checkStatus(checkId, txn.txnId);
+
+    rechargeLogger.info('Admin sync-status result', {
+      txnId,
+      previousStatus: txn.status,
+      newStatus: statusResult.status,
+      providerStatus: statusResult.providerStatus,
+      rawResponse: statusResult.rawResponse,
+      performedBy,
+    });
+
+    if (statusResult.status === txn.status) {
+      return { txn, changed: false, newStatus: statusResult.status, statusResult };
+    }
+
+    // If provider says SUCCESS but we previously failed+refunded — re-debit the refund
+    if (
+      statusResult.status === TRANSACTION_STATUS.SUCCESS &&
+      txn.status === TRANSACTION_STATUS.FAILED &&
+      txn.refundAmount > 0
+    ) {
+      const wallet = await walletRepository.findByUserId(txn.user?._id?.toString() || txn.user?.toString());
+      if (wallet) {
+        const existingWallet = await walletRepository.model.findById(wallet._id);
+        const balanceBefore = existingWallet?.balance ?? 0;
+        const balanceAfter = parseFloat((balanceBefore - txn.refundAmount).toFixed(2));
+
+        await walletRepository.model.findByIdAndUpdate(wallet._id, {
+          $inc: { balance: -txn.refundAmount, totalDebited: txn.refundAmount },
+          $set: { lastTransactionAt: new Date() },
+        });
+
+        await walletTransactionRepository.create({
+          wallet: wallet._id,
+          user: txn.user,
+          txnId: generateWalletTxnId(),
+          type: WALLET_TRANSACTION_TYPE.DEBIT,
+          amount: txn.refundAmount,
+          balanceBefore,
+          balanceAfter,
+          description: `Admin sync: recharge confirmed SUCCESS — reversal of timeout refund`,
+          referenceId: txn.txnId,
+          referenceType: 'RECHARGE',
+        });
+
+        await rechargeTransactionRepository.updateOne(
+          { txnId: txn.txnId },
+          { $set: { refundAmount: 0 } },
+        );
+
+        rechargeLogger.info('Admin sync: re-debited wallet after timeout refund reversal', {
+          txnId,
+          amount: txn.refundAmount,
+          performedBy,
+        });
+      }
+    }
+
+    const updatedTxn = await rechargeTransactionRepository.updateStatus(txn.txnId, statusResult.status, {
+      providerStatus: statusResult.providerStatus,
+      providerMessage: statusResult.message,
+      ...(statusResult.providerTxnId && { providerTxnId: statusResult.providerTxnId }),
+      ...(statusResult.operatorRef && { operatorRef: statusResult.operatorRef }),
+    });
+
+    auditLogRepository.create({
+      performedBy,
+      targetUser: txn.user,
+      action: AUDIT_ACTION.RECHARGE_STATUS_SYNCED || 'RECHARGE_STATUS_SYNCED',
+      severity: AUDIT_SEVERITY.MEDIUM,
+      module: 'recharge',
+      description: `Admin synced txn ${txnId} status: ${txn.status} → ${statusResult.status}`,
+      referenceId: txnId,
+    }).catch(() => {});
+
+    return { txn: updatedTxn, changed: true, newStatus: statusResult.status, statusResult };
   },
 };

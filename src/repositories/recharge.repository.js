@@ -35,7 +35,6 @@ class RechargeTransactionRepository extends BaseRepository {
       .select('+providerRequest +providerResponse')
       .populate('operator', 'name code type')
       .populate('circle', 'name code')
-      .populate('provider', 'name code')
       .lean();
   }
 

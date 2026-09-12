@@ -78,14 +78,14 @@ const env = {
     apiKey: process.env.MROBOTICS_API_KEY,
     apiSecret: process.env.MROBOTICS_API_SECRET,
     memberId: process.env.MROBOTICS_MEMBER_ID,
-    timeoutMs: parseInt(process.env.MROBOTICS_TIMEOUT_MS, 10) || 30000,
+    timeoutMs: parseInt(process.env.MROBOTICS_TIMEOUT_MS, 10) || 90000,
     retryCount: parseInt(process.env.MROBOTICS_RETRY_COUNT, 10) || 3,
     retryDelayMs: parseInt(process.env.MROBOTICS_RETRY_DELAY_MS, 10) || 1000,
   },
   realrobo: {
     baseUrl: process.env.REALROBO_BASE_URL || 'https://realrobo.in',
     apiToken: process.env.REALROBO_API_TOKEN || '',
-    timeoutMs: parseInt(process.env.REALROBO_TIMEOUT_MS, 10) || 30000,
+    timeoutMs: parseInt(process.env.REALROBO_TIMEOUT_MS, 10) || 90000,
     defaultStateId: process.env.REALROBO_DEFAULT_STATE_ID || '22',
   },
   retry: {

@@ -59,7 +59,12 @@ app.use(mongoSanitize());
 app.use(requestIdMiddleware);
 app.use(requestResponseLogger);
 
-app.use('/api/v1/webhooks', express.json({ limit: '1mb' }), webhookRouter);
+app.use(
+  '/api/v1/webhooks',
+  express.json({ limit: '1mb' }),
+  express.urlencoded({ extended: true, limit: '1mb' }),
+  webhookRouter,
+);
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));

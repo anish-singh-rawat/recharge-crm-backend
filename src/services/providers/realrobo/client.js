@@ -7,7 +7,7 @@ const axiosInstance = axios.create({
   baseURL: env.realrobo.baseUrl,
   timeout: env.realrobo.timeoutMs,
   headers: { Accept: 'application/json' },
-  httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+  httpsAgent: new https.Agent({ rejectUnauthorized: false, keepAlive: true }),
 });
 
 export const realroboRequest = async ({ endpoint, params = {}, correlationId = null }) => {
@@ -33,6 +33,7 @@ export const realroboRequest = async ({ endpoint, params = {}, correlationId = n
     providerLogger.info('RealRobo response', {
       endpoint,
       statusCode: response.status,
+      raw,
       duration: Date.now() - startTime,
     });
 
@@ -42,6 +43,7 @@ export const realroboRequest = async ({ endpoint, params = {}, correlationId = n
     const rawResponse = err.response?.data ?? null;
     const errorMessage =
       rawResponse?.message ||
+      rawResponse?.msg ||
       (typeof rawResponse?.error === 'string' ? rawResponse.error : null) ||
       err.message ||
       'RealRobo request failed';
@@ -60,7 +62,9 @@ export const realroboRequest = async ({ endpoint, params = {}, correlationId = n
     const error = new Error(errorMessage);
     error.statusCode = statusCode;
     error.rawResponse = rawResponse;
-    error.isRetryable = statusCode === null || statusCode >= 500;
+    error.code = err.code;
+    error.isTimeout = err.code === 'ECONNABORTED' || /timeout/i.test(errorMessage);
+    error.isRetryable = error.isTimeout || statusCode === null || statusCode >= 500;
     throw error;
   }
 };
