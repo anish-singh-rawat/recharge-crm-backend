@@ -17,13 +17,16 @@ export const partnerOrderController = {
   }),
 
   listOrders: asyncHandler(async (req, res) => {
-    const { page, limit, search, status, prmId } = req.query;
+    const { page, limit, search, status, prmId, startDate, endDate, isExport } = req.query;
     const result = await partnerOrderService.listOrders({
       page,
       limit,
       search,
       status,
       prmId,
+      startDate,
+      endDate,
+      isExport,
     });
     sendSuccess(res, {
       message: 'Orders retrieved successfully',
@@ -95,7 +98,8 @@ export const partnerOrderController = {
   }),
 
   getSummary: asyncHandler(async (req, res) => {
-    const summary = await partnerOrderService.getSummary();
+    const { startDate, endDate } = req.query;
+    const summary = await partnerOrderService.getSummary({ startDate, endDate });
     sendSuccess(res, {
       message: 'Summary metrics retrieved successfully',
       data: summary,

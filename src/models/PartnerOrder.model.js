@@ -42,7 +42,7 @@ const partnerOrderSchema = new mongoose.Schema(
     dueAmount: {
       type: Number,
       default: function () {
-        const netPayable = Math.round((this.orderAmount || 0) * 0.97 * 100) / 100;
+        const netPayable = Math.round(((this.orderAmount || 0) / 1.03) * 100) / 100;
         return Math.max(0, Math.round((netPayable - (this.paidAmount || 0)) * 100) / 100);
       },
     },
@@ -85,10 +85,10 @@ partnerOrderSchema.index({ orderId: 1, partnerPrmId: 1 }, { unique: true });
 partnerOrderSchema.index({ partnerPrmId: 1, createdAt: -1 });
 partnerOrderSchema.index({ dueAmount: 1 });
 
-// Pre-save hook to ensure dueAmount and paymentStatus remain consistent (3% retailer commission)
+// Pre-save hook to ensure dueAmount and paymentStatus remain consistent (Order Amount contains 3% interest; net base is orderAmount / 1.03)
 partnerOrderSchema.pre('save', function (next) {
   const orderAmt = Number(this.orderAmount) || 0;
-  const netPayable = Math.round(orderAmt * 0.97 * 100) / 100;
+  const netPayable = Math.round((orderAmt / 1.03) * 100) / 100;
   const paidAmt = Number(this.paidAmount) || 0;
   this.dueAmount = Math.max(0, Math.round((netPayable - paidAmt) * 100) / 100);
 

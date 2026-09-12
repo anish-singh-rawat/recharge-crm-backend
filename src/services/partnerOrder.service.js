@@ -4,6 +4,7 @@ import { whatsappService } from './whatsapp.service.js';
 import { getIO } from '../socket/socket.js';
 import logger from '../config/logger.js';
 import { BusinessError } from '../helpers/error.helper.js';
+import { buildDateRangeFilter } from '../utils/pagination.util.js';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -67,8 +68,15 @@ class PartnerOrderService {
       const orders = await PartnerOrder.find();
       for (const order of orders) {
         const orderAmt = Number(order.orderAmount) || 0;
-        const netPayable = Math.round(orderAmt * 0.97 * 100) / 100;
-        const paidAmt = Number(order.paidAmount) || 0;
+        const netPayable = Math.round((orderAmt / 1.03) * 100) / 100;
+        let paidAmt = Number(order.paidAmount) || 0;
+
+        const oldNetPayable = Math.round(orderAmt * 0.97 * 100) / 100;
+        if (order.paymentStatus === 'paid' && (paidAmt === oldNetPayable || paidAmt >= netPayable)) {
+          paidAmt = netPayable;
+          order.paidAmount = netPayable;
+        }
+
         const expectedDue = Math.max(0, Math.round((netPayable - paidAmt) * 100) / 100);
         const expectedStatus =
           paidAmt >= netPayable && netPayable > 0
@@ -78,9 +86,10 @@ class PartnerOrderService {
             : 'pending';
 
         let needsSave = false;
-        if (order.dueAmount !== expectedDue || order.paymentStatus !== expectedStatus) {
+        if (order.dueAmount !== expectedDue || order.paymentStatus !== expectedStatus || order.paidAmount !== paidAmt) {
           order.dueAmount = expectedDue;
           order.paymentStatus = expectedStatus;
+          order.paidAmount = paidAmt;
           needsSave = true;
         }
 
@@ -257,7 +266,7 @@ class PartnerOrderService {
         continue;
       }
 
-      const netPayable = Math.round((row.orderAmount || 0) * 0.97 * 100) / 100;
+      const netPayable = Math.round(((row.orderAmount || 0) / 1.03) * 100) / 100;
       await PartnerOrder.create({
         orderId: row.orderId,
         orderTime: row.orderTime,
@@ -285,13 +294,16 @@ class PartnerOrderService {
   }
 
   /**
-   * Lists orders with pagination, search, status filter, and joined partner mobile numbers
+   * Lists orders with pagination, search, status filter, date range, and joined partner mobile numbers.
+   * When isExport=true, fetches all matching records without pagination limit.
    */
-  async listOrders({ page = 1, limit = 20, search = '', status = 'all', prmId = '' }) {
+  async listOrders({ page = 1, limit = 20, search = '', status = 'all', prmId = '', startDate = '', endDate = '', isExport = false }) {
     await this.syncExistingOrderDueAmounts();
+
+    const exportMode = isExport === true || isExport === 'true';
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
-    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
-    const skip = (pageNum - 1) * limitNum;
+    const limitNum = exportMode ? 100000 : Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+    const skip = exportMode ? 0 : (pageNum - 1) * limitNum;
 
     const filter = {};
 
@@ -313,6 +325,10 @@ class PartnerOrderService {
         { partnerPrmId: searchRegex },
       ];
     }
+
+    // Apply date range filter on createdAt
+    const dateFilter = buildDateRangeFilter(startDate, endDate, 'createdAt');
+    Object.assign(filter, dateFilter);
 
     const [orders, total] = await Promise.all([
       PartnerOrder.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limitNum).lean(),
@@ -337,10 +353,10 @@ class PartnerOrderService {
       orders: enrichedOrders,
       pagination: {
         total,
-        page: pageNum,
-        limit: limitNum,
-        pages: Math.ceil(total / limitNum) || 1,
-        totalPages: Math.ceil(total / limitNum) || 1,
+        page: exportMode ? 1 : pageNum,
+        limit: exportMode ? total : limitNum,
+        pages: exportMode ? 1 : (Math.ceil(total / limitNum) || 1),
+        totalPages: exportMode ? 1 : (Math.ceil(total / limitNum) || 1),
       },
     };
   }
@@ -378,8 +394,8 @@ class PartnerOrderService {
 
     order.paidAmount = numericPaid;
 
-    // Compute dueAfter based on 97% net payable
-    const netPayable = Math.round((order.orderAmount || 0) * 0.97 * 100) / 100;
+    // Compute dueAfter based on net payable (orderAmount / 1.03)
+    const netPayable = Math.round(((order.orderAmount || 0) / 1.03) * 100) / 100;
     const dueAfter = Math.max(0, Math.round((netPayable - numericPaid) * 100) / 100);
 
     // Always record a history entry when paidAmount actually changes
@@ -491,9 +507,9 @@ class PartnerOrderService {
       throw new BusinessError('No matching orders found.');
     }
 
-    // Set paidAmount = netPayable (orderAmount - 3% retailer commission) for each so dueAmount becomes 0 via pre-save hook
+    // Set paidAmount = netPayable (orderAmount / 1.03) for each so dueAmount becomes 0 via pre-save hook
     for (const order of orders) {
-      const netPayable = Math.round((order.orderAmount || 0) * 0.97 * 100) / 100;
+      const netPayable = Math.round(((order.orderAmount || 0) / 1.03) * 100) / 100;
       const paidBefore = order.paidAmount || 0;
       if (netPayable !== paidBefore) {
         const receivedAmount = Math.round((netPayable - paidBefore) * 100) / 100;
@@ -630,13 +646,22 @@ class PartnerOrderService {
     };
   }
 
-  async getSummary() {
+  async getSummary({ startDate = '', endDate = '' } = {}) {
     await this.syncExistingOrderDueAmounts();
+
+    // Build date range filter for createdAt if provided
+    const dateFilter = buildDateRangeFilter(startDate, endDate, 'createdAt');
+    const hasDates = Object.keys(dateFilter).length > 0;
+
+    const baseFilter = hasDates ? { ...dateFilter } : {};
+    const dueFilter = hasDates ? { ...dateFilter, dueAmount: { $gt: 0 } } : { dueAmount: { $gt: 0 } };
+
     const [totalOrders, dueOrdersCount, aggregates, totalPartners, partnersWithMobile] =
       await Promise.all([
-        PartnerOrder.countDocuments(),
-        PartnerOrder.countDocuments({ dueAmount: { $gt: 0 } }),
+        PartnerOrder.countDocuments(baseFilter),
+        PartnerOrder.countDocuments(dueFilter),
         PartnerOrder.aggregate([
+          ...(hasDates ? [{ $match: dateFilter }] : []),
           {
             $group: {
               _id: null,
